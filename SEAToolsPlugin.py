@@ -219,17 +219,16 @@ def LoadSEAnim(filepath=""):
 	cmds.rename(base_track, "SEANotes")
 	# Loop
 	for note in anim.notes:
-		try:
-			cmds.getAttr(note.name)
+		if cmds.objExists(note.name):
 			# We have it, key it
 			cmds.setKeyframe(note.name, time=note.frame)
-		except:
+		else:
 			# We need to make it
 			notetrack = cmds.spaceLocator()
 			# Rename
 			cmds.rename(notetrack, note.name)
 			# Parent it
-			cmds.parent(note.name, "SEANotes")
+			mel.eval("parent " + note.name + " SEANotes")
 			# Key it
 			cmds.setKeyframe(note.name, time=note.frame)
 
