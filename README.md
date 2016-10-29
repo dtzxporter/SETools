@@ -1,5 +1,5 @@
 # SEAToolsMaya
-A .SEA format import / export plugin for maya
+A .SEA format import / export plugin for maya (2012+)
 
 ## Installation:
 Download the latest [seanim.py](https://raw.githubusercontent.com/dtzxporter/SEATools/master/seanim.py) and [SEAToolsPlugin.py](https://raw.githubusercontent.com/dtzxporter/SEATools/master/SEAToolsPlugin.py) from the repo and save them in `Documents\maya\<mayaversion\scripts`
