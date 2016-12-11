@@ -147,7 +147,7 @@ def ExportEntireSceneAnim(selectedBones=False):
 	exportPath = exportTo[0].strip()
 	# An anim
 	resultAnim = SEAnim.Anim()
-	# Test only, change after
+	# Used because we made this anim after the fact
 	resultAnim.header.animType = SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE
 	# Loop through bones in scene
 	allBones = cmds.ls(type='joint')
@@ -225,6 +225,28 @@ def ExportEntireSceneAnim(selectedBones=False):
 		if hadKeys:
 			# Add to anim
 			resultAnim.bones.append(boneUse)
+	# Check for SENotes
+	if (cmds.objExists("SENotes")):
+		# Get children and loop
+		noteTrackList = cmds.listRelatives("SENotes",type="transform")
+		# Loop
+		if noteTrackList is not None:
+			# Loop it
+			for note in noteTrackList:
+				# Get key'd values
+				noteKeys = cmds.keyframe(note + ".translateX", query=True, timeChange=True)
+				# Loop and add
+				if noteKeys is not None:
+					# Loop
+					for keyNote in noteKeys:
+						# Make and add
+						seaNote = SEAnim.Note()
+						# Set name
+						seaNote.name = note
+						# Set frame
+						seaNote.frame = keyNote
+						# Add
+						resultAnim.notes.append(seaNote)
 	# Frame count ( Get biggest # from list )
 	resultAnim.header.frameCount = len(framesList)
 	# Save as file
