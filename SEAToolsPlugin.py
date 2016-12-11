@@ -12,6 +12,9 @@ import maya.OpenMayaMPx as OpenMayaMPx
 import struct
 import seanim as SEAnim
 
+#TODO: A way to purge namespaces from menu
+#TORO: Update check...?
+
 MENU_DATA = {'menu' : ["SEAToolsPluginMenu", "SEA Tools", None, None, None]}
 
 GUN_BASE_TAGS = ["j_gun", "j_gun1", "tag_weapon", "tag_weapon1"]
@@ -36,7 +39,7 @@ def ImportFileSelectDialog():
 	if cmds.about(version=True)[:4] == "2012": # Support for newer versions
 		importFrom = cmds.fileDialog2(fileMode=1, fileFilter="SEAnim Files (*.seanim)", caption="Import SEAnim")
 	else:
-		importFrom = cmds.fileDialog2(fileMode=1, dialogStyle=1, fileFilter="SEAnim Files (*.seanim)", caption="Import SEAnim")
+		importFrom = cmds.fileDialog2(fileMode=1, dialogStyle=2, fileFilter="SEAnim Files (*.seanim)", caption="Import SEAnim")
 
 	if importFrom == None or len(importFrom) == 0 or importFrom[0].strip() == "":
 		return None
@@ -123,6 +126,10 @@ def WeaponBinder():
 			cmds.select(clear=True)
 		except:
 			pass
+
+def CleanNote(note):
+	# Clean the note string
+	return note.replace(" ", "_").replace("#", "_")
 
 #Load a .seanim file
 def LoadSEAnim(filepath=""):
@@ -216,21 +223,24 @@ def LoadSEAnim(filepath=""):
 	# Notetracks
 	base_track = cmds.spaceLocator()
 	# Rename
-	cmds.rename(base_track, "SEANotes")
+	cmds.rename(base_track, "SENotes")
 	# Loop
 	for note in anim.notes:
-		if cmds.objExists(note.name):
+		# Clean the note name
+		cleanNote = CleanNote(note.name)
+		# Check if it exists
+		if cmds.objExists(cleanNote):
 			# We have it, key it
-			cmds.setKeyframe(note.name, time=note.frame)
+			cmds.setKeyframe(cleanNote, time=note.frame)
 		else:
 			# We need to make it
 			notetrack = cmds.spaceLocator()
 			# Rename
-			cmds.rename(notetrack, note.name)
+			cmds.rename(notetrack, cleanNote)
 			# Parent it
-			mel.eval("parent " + note.name + " SEANotes")
+			mel.eval("parent " + cleanNote + " SENotes")
 			# Key it
-			cmds.setKeyframe(note.name, time=note.frame)
+			cmds.setKeyframe(cleanNote, time=note.frame)
 
 	# Reset time
 	cmds.currentTime(start_frame)
