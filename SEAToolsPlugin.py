@@ -22,7 +22,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.0)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -93,7 +93,10 @@ def CreateMenu():
 	cmds.menuItem(divider=True)
 
 	# Export tools
-	cmds.menuItem(label="Export SEAnim",enable=False, command="ShowWindow('xmodel')")
+	cmds.menuItem(label="Export All -> SEAnim", command="SEAToolsPlugin.ExportEntireSceneAnim()")
+
+	# Export selected
+	cmds.menuItem(label="Export Selected -> SEAnim", command="SEAToolsPlugin.ExportSelectedAnim()")
 
 	# Divide
 	cmds.menuItem(divider=True)
@@ -131,12 +134,115 @@ def CleanNote(note):
 	# Clean the note string
 	return note.replace(" ", "_").replace("#", "_")
 
+def ExportEntireSceneAnim(selectedBones=False):
+	# Export the whole scene
+	print("Exporting SEAnim...")
+	# Get file
+	exportTo = cmds.fileDialog2(fileMode=0, fileFilter="SEAnim Files (*.seanim)", caption="Export SEAnim")
+	# Check
+	if exportTo == None or len(exportTo) == 0 or exportTo[0].strip() == "":
+		# Was blank
+		return None
+	# Setup path
+	exportPath = exportTo[0].strip()
+	# An anim
+	resultAnim = SEAnim.Anim()
+	# Test only, change after
+	resultAnim.header.animType = SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE
+	# Loop through bones in scene
+	allBones = cmds.ls(type='joint')
+	# Check if we just want selected bones
+	if selectedBones:
+		# Only list selected bones (Joints)
+		allBones = cmds.ls(selection=True, type='joint')
+	# A list of frames
+	framesList = []
+	# Loop
+	for bone in allBones:
+		# Our bone
+		boneUse = SEAnim.Bone()
+		# Set name
+		boneUse.name = bone
+		# We had keys
+		hadKeys = False
+		# Check if bone has keys for .t or .r
+		keysTranslate = cmds.keyframe(bone + ".translate", query=True, timeChange=True)
+		# framesAddedTranslate
+		framesAddedTranslate = []
+		# Check
+		if keysTranslate is not None:
+			if len(keysTranslate) >= 1:
+				# We got translation frames, loop and add
+				hadKeys = True
+				# Loop
+				for frame in keysTranslate:
+					# Add if need be
+					if frame not in framesList:
+						# Add
+						framesList.append(frame)
+					# Check
+					if frame not in framesAddedTranslate:
+						# Add
+						framesAddedTranslate.append(frame)
+						# Grab the XYZ
+						transKey = cmds.getAttr(bone + ".translate", time=frame)[0]
+						# Make and add key
+						boneUse.posKeys.append( SEAnim.KeyFrame(frame, transKey) )
+						# Increase
+						boneUse.locKeyCount = (boneUse.locKeyCount + 1)
+		# Get rotations
+		keysRotate = cmds.keyframe(bone + ".rotate", query=True, timeChange=True)
+		# framesAddedRotate
+		framesAddedRotate = []
+		# Check
+		if keysRotate is not None:
+			if len(keysRotate) >= 1:
+				# We got rotations frames, loop and add
+				hadKeys = True
+				# Loop
+				for frame in keysRotate:
+					# Add if need be
+					if frame not in framesList:
+						# Add
+						framesList.append(frame)
+					# Check
+					if frame not in framesAddedRotate:
+						# Add
+						framesAddedRotate.append(frame)
+						# Grab the Eular and convert to quat
+						eularKey = cmds.getAttr(bone + ".rotate", time=frame)[0]
+						# Convert and add
+						eularRot = OpenMaya.MEulerRotation(math.radians(eularKey[0]), math.radians(eularKey[1]), math.radians(eularKey[2]))
+						# Result
+						quatRot = eularRot.asQuaternion()
+						# Make rot
+						rotValue = (quatRot.x, quatRot.y, quatRot.z, quatRot.w)
+						# Make and add key
+						boneUse.rotKeys.append( SEAnim.KeyFrame(frame, rotValue) )
+						# Increase
+						boneUse.rotKeyCount = (boneUse.rotKeyCount + 1)
+		# Check if we had any
+		if hadKeys:
+			# Add to anim
+			resultAnim.bones.append(boneUse)
+	# Frame count ( Get biggest # from list )
+	resultAnim.header.frameCount = len(framesList)
+	# Save as file
+	resultAnim.save(exportPath)
+	# Done
+	print("The SEAnim was exported.")
+
+def ExportSelectedAnim():
+	# Export selected bones only
+	ExportEntireSceneAnim(True)
+
+
 #Load a .seanim file
 def LoadSEAnim(filepath=""):
 	# Log
 	print("Loading SEAnim file...")
 	# Load the file using helper lib
-	anim = SEAnim.Read(filepath)
+	anim = SEAnim.Anim(filepath)
 	# Starting frame
 	start_frame = 0
 	# End frame
@@ -169,18 +275,6 @@ def LoadSEAnim(filepath=""):
 					cmds.setAttr(tag.name + ".jo", 0, 0, 0)
 					# Reset bone rotation
 					cmds.setAttr(tag.name + ".rotate", 0, 0, 0)
-				else:
-					if len(tag.rotKeys) == 1: # Has single rotation
-						# Set bone orientation to first frame
-						cmds.setAttr(tag.name + ".jo", tag.rotKeys[0].data[0], tag.rotKeys[0].data[1], tag.rotKeys[0].data[1])
-						# Reset bone rotation
-						cmds.setAttr(tag.name + ".rotate", 0, 0, 0)
-					else: # Has no rotation but needs to be reset
-						# Reset bone orientation
-						cmds.setAttr(tag.name + ".jo", 0, 0, 0)
-						# Reset bone rotation
-						cmds.setAttr(tag.name + ".rotate", 0, 0, 0)
-
 				# Set key
 				cmds.setKeyframe(tag.name, time=start_frame)
 			except:
@@ -195,17 +289,27 @@ def LoadSEAnim(filepath=""):
 					cmds.setKeyframe(tag.name, v=key.data[0], at="translateX", time=key.frame)
 					cmds.setKeyframe(tag.name, v=key.data[1], at="translateY", time=key.frame)
 					cmds.setKeyframe(tag.name, v=key.data[2], at="translateZ", time=key.frame)
+					# Check if it's static
+					if len(tag.posKeys) == 1: # Single pos, change the value on the bone
+						# Set it
+						cmds.setAttr(tag.name + ".t", key.data[0], key.data[0], key.data[0])
 				else: # Use DELTA / RELATIVE results (ADDITIVE is unknown)
 					# Set the relative key
 					cmds.setKeyframe(tag.name, v=(bone_rest[0] + key.data[0]), at="translateX", time=key.frame)
 					cmds.setKeyframe(tag.name, v=(bone_rest[1] + key.data[1]), at="translateY", time=key.frame)
 					cmds.setKeyframe(tag.name, v=(bone_rest[2] + key.data[2]), at="translateZ", time=key.frame)
+					# Check if it's static
+					if len(tag.posKeys) == 1: # Single pos, change the value on the bone
+						# Set it
+						cmds.setAttr(tag.name + ".t", (bone_rest[0] + key.data[0]), (bone_rest[1] + key.data[1]), (bone_rest[2] + key.data[2]))
 			# Loop through rotations
 			for key in tag.rotKeys:
 				# Set the rotation
 				quat = OpenMaya.MQuaternion(key.data[0], key.data[1], key.data[2], key.data[3])
 				# Convert to euler
 				euler_rot = quat.asEulerRotation();
+				# Reset it's JO
+				cmds.setAttr(tag.name + ".jo", 0, 0, 0)
 				# Set the matrix
 				cmds.setAttr(tag.name + ".r", math.degrees(euler_rot.x), math.degrees(euler_rot.y), math.degrees(euler_rot.z))
 				# Key the frame
