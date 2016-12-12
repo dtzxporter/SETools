@@ -314,7 +314,7 @@ def LoadSEAnim(filepath=""):
 					# Check if it's static
 					if len(tag.posKeys) == 1: # Single pos, change the value on the bone
 						# Set it
-						cmds.setAttr(tag.name + ".t", key.data[0], key.data[0], key.data[0])
+						cmds.setAttr(tag.name + ".t", key.data[0], key.data[1], key.data[2])
 				else: # Use DELTA / RELATIVE results (ADDITIVE is unknown)
 					# Set the relative key
 					cmds.setKeyframe(tag.name, v=(bone_rest[0] + key.data[0]), at="translateX", time=key.frame)
