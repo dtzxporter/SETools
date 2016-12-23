@@ -22,7 +22,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3.1)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -297,6 +297,11 @@ def LoadSEAnim(filepath=""):
 					cmds.setAttr(tag.name + ".jo", 0, 0, 0)
 					# Reset bone rotation
 					cmds.setAttr(tag.name + ".rotate", 0, 0, 0)
+				else: # Has no rotation but needs to be reset, should work..
+ 					# Reset bone orientation
+ 					cmds.setAttr(tag.name + ".jo", 0, 0, 0)
+ 					# Reset bone rotation
+ 					cmds.setAttr(tag.name + ".rotate", 0, 0, 0)
 				# Set key
 				cmds.setKeyframe(tag.name, time=start_frame)
 			except:
