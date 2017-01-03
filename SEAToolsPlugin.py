@@ -22,7 +22,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3.2)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3.3)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -132,7 +132,7 @@ def WeaponBinder():
 
 def CleanNote(note):
 	# Clean the note string
-	return note.replace(" ", "_").replace("#", "_")
+	return note.replace(" ", "_").replace("#", "_").replace("\"", "_").replace("'", "_").replace("=", "_")
 
 def ExportEntireSceneAnim(selectedBones=False):
 	# Export the whole scene
