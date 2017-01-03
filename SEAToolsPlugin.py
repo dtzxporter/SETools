@@ -22,7 +22,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3.3)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3.4)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -54,16 +54,19 @@ def ImportFileSelectDialog():
 # Attempt to resolve the animType for a bone based on a given list of modifier bones, returns None if no override is needed
 def ResolvePotentialAnimTypeOverride(bone, boneAnimModifiers):
 	#Grab the parent tree
-	parents = cmds.ls(bone.name, long=True)[0].split('|')[1:-1]
-	# Check if we even had parents
-	if len(parents) == 0 or len(boneAnimModifiers) == 0:
-		return None
+	try:
+		parents = cmds.ls(bone.name, long=True)[0].split('|')[1:-1]
+		# Check if we even had parents
+		if len(parents) == 0 or len(boneAnimModifiers) == 0:
+			return None
 
-	for parent in parents:
-		for modBone in boneAnimModifiers:
-			if parent == modBone.name:
-				return modBone.modifier
-	return None
+		for parent in parents:
+			for modBone in boneAnimModifiers:
+				if parent == modBone.name:
+					return modBone.modifier
+		return None
+	except:
+		return None
 
 # Importer
 def ImportSEAnim():
@@ -345,10 +348,15 @@ def LoadSEAnim(filepath=""):
 				cmds.setKeyframe(tag.name, at="rotate", time=key.frame)
 			# Rotation interpolation (Only for eular angles)
 			mel.eval("rotationInterpolation -c quaternion " + tag.name + ".rotateX " + tag.name + ".rotateY " + tag.name + ".rotateZ")
-			# Linear interpolation (Eular angles)
-			cmds.select(tag.name)
-			# Transform selection
-			mel.eval("keyTangent -e -itt linear -ott linear")
+			# Try to interpol
+			try:
+				# Linear interpolation (Eular angles)
+				cmds.select(tag.name)
+				# Transform selection
+				mel.eval("keyTangent -e -itt linear -ott linear")
+			except:
+				# Nothing
+				pass
 			# Clear selection
 			cmds.select(clear=True)
 			# Basic counter
