@@ -22,7 +22,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.3.4)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -52,17 +52,25 @@ def ImportFileSelectDialog():
 	return path
 
 # Attempt to resolve the animType for a bone based on a given list of modifier bones, returns None if no override is needed
-def ResolvePotentialAnimTypeOverride(bone, boneAnimModifiers):
+def ResolvePotentialAnimTypeOverride(tagname, boneAnimModifiers):
 	#Grab the parent tree
 	try:
-		parents = cmds.ls(bone.name, long=True)[0].split('|')[1:-1]
+		parents = cmds.ls(tagname, long=True)[0].split('|')[1:-1]
 		# Check if we even had parents
 		if len(parents) == 0 or len(boneAnimModifiers) == 0:
 			return None
 
+		# Loop through parents
 		for parent in parents:
+			# Check parent name
+			partag = parent
+			# Check
+			if partag.find(":") > -1:
+				# Set it up
+				partag = partag[partag.find(":") + 1:]
+				# Continue
 			for modBone in boneAnimModifiers:
-				if parent == modBone.name:
+				if partag == modBone.name:
 					return modBone.modifier
 		return None
 	except:
@@ -135,7 +143,7 @@ def WeaponBinder():
 
 def CleanNote(note):
 	# Clean the note string
-	return note.replace(" ", "_").replace("#", "_").replace("\"", "_").replace("'", "_").replace("=", "_")
+	return note.replace(" ", "_").replace("#", "_").replace("\"", "_").replace("'", "_").replace("=", "_").replace("/", "_")
 
 def ExportEntireSceneAnim(selectedBones=False):
 	# Export the whole scene
@@ -282,85 +290,91 @@ def LoadSEAnim(filepath=""):
 	i = 0
 	# Loop through tag names
 	for tag in anim.bones:
-		try:
-			# Check if the tag exist, otherwise don't waste time
-			cmds.getAttr(tag.name + ".t")
-		except:
-			i += 1
-		else:
-			# Check for parent modifiers
-			animType = ResolvePotentialAnimTypeOverride(tag, anim.boneAnimModifiers)
-			# Check if we need to use the anim's default type
-			if animType is None:
-				# Use animation default
-				animType = anim.header.animType
+		# Setup the tagname
+		nsTag = tag.name
+		# Check if it exists
+		if cmds.objExists(nsTag + ".t") == False:
+			# Set to new name
+			nsTag = "*:" + nsTag
+			# Check once more
+			if cmds.objExists(nsTag + ".t") == False:
+				# Continue the loop
+				i += 1
+				# Go
+				continue
+		# Check for parent modifiers
+		animType = ResolvePotentialAnimTypeOverride(nsTag, anim.boneAnimModifiers)
+		# Check if we need to use the anim's default type
+		if animType is None:
+			# Use animation default
+			animType = anim.header.animType
 
-			# Generate the rest keyframes which are used as a base for the following frames (for only the bones that are used)
-			try:
-				if len(tag.rotKeys) > 1: # Has a lot of rotation
+		# Generate the rest keyframes which are used as a base for the following frames (for only the bones that are used)
+		try:
+			if len(tag.rotKeys) > 1: # Has a lot of rotation
+				# Reset bone orientation
+				cmds.setAttr(nsTag + ".jo", 0, 0, 0)
+				# Reset bone rotation
+				cmds.setAttr(nsTag + ".rotate", 0, 0, 0)
+			else: # Has no rotation but needs to be reset, should work..
 					# Reset bone orientation
-					cmds.setAttr(tag.name + ".jo", 0, 0, 0)
+					cmds.setAttr(nsTag + ".jo", 0, 0, 0)
 					# Reset bone rotation
-					cmds.setAttr(tag.name + ".rotate", 0, 0, 0)
-				else: # Has no rotation but needs to be reset, should work..
- 					# Reset bone orientation
- 					cmds.setAttr(tag.name + ".jo", 0, 0, 0)
- 					# Reset bone rotation
- 					cmds.setAttr(tag.name + ".rotate", 0, 0, 0)
-				# Set key
-				cmds.setKeyframe(tag.name, time=start_frame)
-			except:
-				pass
-			# Grab current position data
-			bone_rest = cmds.getAttr(tag.name + ".t")[0]
-			# Loop through positions
-			for key in tag.posKeys:
-				# Viewanims are SEANIM_TYPE_ABSOLUTE
-				if animType == SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE:
-					# Set the absolute key
-					cmds.setKeyframe(tag.name, v=key.data[0], at="translateX", time=key.frame)
-					cmds.setKeyframe(tag.name, v=key.data[1], at="translateY", time=key.frame)
-					cmds.setKeyframe(tag.name, v=key.data[2], at="translateZ", time=key.frame)
-					# Check if it's static
-					if len(tag.posKeys) == 1: # Single pos, change the value on the bone
-						# Set it
-						cmds.setAttr(tag.name + ".t", key.data[0], key.data[1], key.data[2])
-				else: # Use DELTA / RELATIVE results (ADDITIVE is unknown)
-					# Set the relative key
-					cmds.setKeyframe(tag.name, v=(bone_rest[0] + key.data[0]), at="translateX", time=key.frame)
-					cmds.setKeyframe(tag.name, v=(bone_rest[1] + key.data[1]), at="translateY", time=key.frame)
-					cmds.setKeyframe(tag.name, v=(bone_rest[2] + key.data[2]), at="translateZ", time=key.frame)
-					# Check if it's static
-					if len(tag.posKeys) == 1: # Single pos, change the value on the bone
-						# Set it
-						cmds.setAttr(tag.name + ".t", (bone_rest[0] + key.data[0]), (bone_rest[1] + key.data[1]), (bone_rest[2] + key.data[2]))
-			# Loop through rotations
-			for key in tag.rotKeys:
-				# Set the rotation
-				quat = OpenMaya.MQuaternion(key.data[0], key.data[1], key.data[2], key.data[3])
-				# Convert to euler
-				euler_rot = quat.asEulerRotation();
-				# Reset it's JO
-				cmds.setAttr(tag.name + ".jo", 0, 0, 0)
-				# Set the matrix
-				cmds.setAttr(tag.name + ".r", math.degrees(euler_rot.x), math.degrees(euler_rot.y), math.degrees(euler_rot.z))
-				# Key the frame
-				cmds.setKeyframe(tag.name, at="rotate", time=key.frame)
-			# Rotation interpolation (Only for eular angles)
-			mel.eval("rotationInterpolation -c quaternion " + tag.name + ".rotateX " + tag.name + ".rotateY " + tag.name + ".rotateZ")
-			# Try to interpol
-			try:
-				# Linear interpolation (Eular angles)
-				cmds.select(tag.name)
-				# Transform selection
-				mel.eval("keyTangent -e -itt linear -ott linear")
-			except:
-				# Nothing
-				pass
-			# Clear selection
-			cmds.select(clear=True)
-			# Basic counter
-			i += 1
+					cmds.setAttr(nsTag + ".rotate", 0, 0, 0)
+			# Set key
+			cmds.setKeyframe(nsTag, time=start_frame)
+		except:
+			pass
+		# Grab current position data
+		bone_rest = cmds.getAttr(nsTag + ".t")[0]
+		# Loop through positions
+		for key in tag.posKeys:
+			# Viewanims are SEANIM_TYPE_ABSOLUTE
+			if animType == SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE:
+				# Set the absolute key
+				cmds.setKeyframe(nsTag, v=key.data[0], at="translateX", time=key.frame)
+				cmds.setKeyframe(nsTag, v=key.data[1], at="translateY", time=key.frame)
+				cmds.setKeyframe(nsTag, v=key.data[2], at="translateZ", time=key.frame)
+				# Check if it's static
+				if len(tag.posKeys) == 1: # Single pos, change the value on the bone
+					# Set it
+					cmds.setAttr(nsTag + ".t", key.data[0], key.data[0], key.data[0])
+			else: # Use DELTA / RELATIVE results (ADDITIVE is unknown)
+				# Set the relative key
+				cmds.setKeyframe(nsTag, v=(bone_rest[0] + key.data[0]), at="translateX", time=key.frame)
+				cmds.setKeyframe(nsTag, v=(bone_rest[1] + key.data[1]), at="translateY", time=key.frame)
+				cmds.setKeyframe(nsTag, v=(bone_rest[2] + key.data[2]), at="translateZ", time=key.frame)
+				# Check if it's static
+				if len(tag.posKeys) == 1: # Single pos, change the value on the bone
+					# Set it
+					cmds.setAttr(nsTag + ".t", (bone_rest[0] + key.data[0]), (bone_rest[1] + key.data[1]), (bone_rest[2] + key.data[2]))
+		# Loop through rotations
+		for key in tag.rotKeys:
+			# Set the rotation
+			quat = OpenMaya.MQuaternion(key.data[0], key.data[1], key.data[2], key.data[3])
+			# Convert to euler
+			euler_rot = quat.asEulerRotation();
+			# Reset it's JO
+			cmds.setAttr(nsTag + ".jo", 0, 0, 0)
+			# Set the matrix
+			cmds.setAttr(nsTag + ".r", math.degrees(euler_rot.x), math.degrees(euler_rot.y), math.degrees(euler_rot.z))
+			# Key the frame
+			cmds.setKeyframe(nsTag, at="rotate", time=key.frame)
+		# Rotation interpolation (Only for eular angles)
+		mel.eval("rotationInterpolation -c quaternion \"" + nsTag + ".rotateX\" \"" + nsTag + ".rotateY\" \"" + nsTag + ".rotateZ\"")
+		# Try to interpol
+		try:
+			# Linear interpolation (Eular angles)
+			cmds.select(nsTag)
+			# Transform selection
+			mel.eval("keyTangent -e -itt linear -ott linear")
+		except:
+			# Nothing
+			pass
+		# Clear selection
+		cmds.select(clear=True)
+		# Basic counter
+		i += 1
 	# Notetracks
 	base_track = cmds.spaceLocator()
 	# Rename
