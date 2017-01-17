@@ -12,17 +12,14 @@ import maya.OpenMayaMPx as OpenMayaMPx
 import struct
 import seanim as SEAnim
 
-#TODO: A way to purge namespaces from menu
-#TORO: Update check...?
-
-MENU_DATA = {'menu' : ["SEAToolsPluginMenu", "SEA Tools", None, None, None]}
+MENU_DATA = {'menu' : ["SEAToolsPluginMenu", "SE Tools", None, None, None]}
 
 GUN_BASE_TAGS = ["j_gun", "j_gun1", "tag_weapon", "tag_weapon1"]
 VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_left"]
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4.3)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -112,8 +109,26 @@ def CreateMenu():
 	# Divide
 	cmds.menuItem(divider=True)
 
+	# Clean namespaces
+	cmds.menuItem(label="Clean Namespaces", command="SEAToolsPlugin.NamespaceClean()")
+
+	# Divide
+	cmds.menuItem(divider=True)
+
+	# Make game specific submenu
+	game_menu = cmds.menuItem(label="Game Specific Tools", subMenu=True)
+
+	# Call of duty menu
+	cmds.menuItem(label="Call of Duty", subMenu=True)
+
 	# Bind weapon to hand
 	cmds.menuItem(label="Attach Weapon to Rig", command="SEAToolsPlugin.WeaponBinder()")
+
+	# Close out menu (Call of Duty)
+	cmds.setParent(game_menu, menu=True)
+
+	# Close out menu (Game tools)
+	cmds.setParent(menu, menu=True)
 
 	# Divide
 	cmds.menuItem(divider=True)
@@ -126,8 +141,8 @@ def CreateMenu():
 
 # Bind the weapon to hands
 def WeaponBinder():
-	# This is currently COD specific, can implement into model / anim format later
-	for x in xrange(0,len(GUN_BASE_TAGS)):
+	# Call of Duty specific
+	for x in xrange(0, len(GUN_BASE_TAGS)):
 		try:
 			# Select both tags and parent them
 			cmds.select(GUN_BASE_TAGS[x], replace=True)
@@ -136,10 +151,34 @@ def WeaponBinder():
 			cmds.connectJoint(connectMode=True)
 			# Parent
 			mel.eval("parent " + GUN_BASE_TAGS[x] + " " + VIEW_HAND_TAGS[x])
+			# Reset the positions of both bones
+			cmds.setAttr(GUN_BASE_TAGS[x] + ".t", 0, 0, 0)
+			cmds.setAttr(GUN_BASE_TAGS[x] + ".jo", 0, 0, 0)
+			cmds.setAttr(GUN_BASE_TAGS[x] + ".rotate", 0, 0, 0)
 			# Remove
 			cmds.select(clear=True)
 		except:
 			pass
+
+# Cleans namespaces
+def NamespaceClean():
+	# Get a list of bones
+	boneList = cmds.ls(type='joint')
+	# Loop
+	for bone in boneList:
+		# Check if it has a namespace
+		if bone.find(":") > -1:
+			# We got one, prepare to clean
+			resultSplit = bone.split(":")
+			# Get the last one
+			newName = resultSplit[len(resultSplit)-1]
+			# Rename it
+			try:
+				# Do it
+				cmds.rename(bone, newName)
+			except:
+				# Continue
+				pass
 
 def CleanNote(note):
 	# Clean the note string
