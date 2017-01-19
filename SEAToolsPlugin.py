@@ -19,7 +19,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4.3)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4.4)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -325,10 +325,18 @@ def LoadSEAnim(filepath=""):
 	cmds.playbackOptions(maxTime=end_frame, aet=end_frame)
 	# Turn off autoKey
 	mel.eval("autoKeyframe -state off")
+	# Setup progress
+	gMainProgressBar = mel.eval('$tmp = $gMainProgressBar');
+	# Count
+	maxCount = len(anim.bones)
+	# Create the bar
+	cmds.progressBar(gMainProgressBar, edit=True, beginProgress=True, isInterruptable=False, status='Loading SEAnim...', maxValue=maxCount)
 	# Import the actual keyframes
 	i = 0
 	# Loop through tag names
 	for tag in anim.bones:
+		# Progress
+		cmds.progressBar(gMainProgressBar, edit=True, step=1)
 		# Setup the tagname
 		nsTag = tag.name
 		# Check if it exists
@@ -414,6 +422,8 @@ def LoadSEAnim(filepath=""):
 		cmds.select(clear=True)
 		# Basic counter
 		i += 1
+	# End progress
+	cmds.progressBar(gMainProgressBar, edit=True, endProgress=True)
 	# Notetracks
 	base_track = cmds.spaceLocator()
 	# Rename
