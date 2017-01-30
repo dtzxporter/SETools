@@ -19,7 +19,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4.4)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4.5)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -338,17 +338,22 @@ def LoadSEAnim(filepath=""):
 		# Progress
 		cmds.progressBar(gMainProgressBar, edit=True, step=1)
 		# Setup the tagname
-		nsTag = tag.name
-		# Check if it exists
-		if cmds.objExists(nsTag + ".t") == False:
-			# Set to new name
-			nsTag = "*:" + nsTag
-			# Check once more
+		nsTag = tag.name.strip()
+		# Make sure it's not blank
+		if nsTag != "":
+			# Check if it exists
 			if cmds.objExists(nsTag + ".t") == False:
-				# Continue the loop
-				i += 1
-				# Go
-				continue
+				# Set to new name
+				nsTag = "*:" + nsTag
+				# Check once more
+				if cmds.objExists(nsTag + ".t") == False:
+					# Continue the loop
+					i += 1
+					# Go
+					continue
+		else:
+			# Continue
+			continue
 		# Check for parent modifiers
 		animType = ResolvePotentialAnimTypeOverride(nsTag, anim.boneAnimModifiers)
 		# Check if we need to use the anim's default type
@@ -430,21 +435,26 @@ def LoadSEAnim(filepath=""):
 	cmds.rename(base_track, "SENotes")
 	# Loop
 	for note in anim.notes:
-		# Clean the note name
-		cleanNote = CleanNote(note.name)
-		# Check if it exists
-		if cmds.objExists(cleanNote):
-			# We have it, key it
-			cmds.setKeyframe(cleanNote, time=note.frame)
-		else:
-			# We need to make it
-			notetrack = cmds.spaceLocator()
-			# Rename
-			cmds.rename(notetrack, cleanNote)
-			# Parent it
-			mel.eval("parent " + cleanNote + " SENotes")
-			# Key it
-			cmds.setKeyframe(cleanNote, time=note.frame)
+		# Try to key it
+		try:
+			# Clean the note name
+			cleanNote = CleanNote(note.name)
+			# Check if it exists
+			if cmds.objExists(cleanNote):
+				# We have it, key it
+				cmds.setKeyframe(cleanNote, time=note.frame)
+			else:
+				# We need to make it
+				notetrack = cmds.spaceLocator()
+				# Rename
+				cmds.rename(notetrack, cleanNote)
+				# Parent it
+				mel.eval("parent " + cleanNote + " SENotes")
+				# Key it
+				cmds.setKeyframe(cleanNote, time=note.frame)
+		except:
+			# Nothing
+			pass
 
 	# Reset time
 	cmds.currentTime(start_frame)
