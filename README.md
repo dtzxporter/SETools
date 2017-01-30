@@ -1,4 +1,4 @@
-# SEAToolsMaya (v1.4.4)
+# SEAToolsMaya (v1.4.5)
 A .SE format import / export plugin for maya (2012+)
 
 ## Installation:
