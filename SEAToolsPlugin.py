@@ -266,8 +266,8 @@ def ExportEntireSceneAnim(selectedBones=False):
 						# Add
 						framesAddedRotate.append(frame)
 						# Grab the Eular and convert to quat
-						eularKeyR = cmds.getAttr(bone + ".rotate", time=i)[0]
-						eularKeyJO = cmds.getAttr(bone + ".jo", time=i)[0]
+						eularKeyR = cmds.getAttr(bone + ".rotate", time=frame)[0]
+						eularKeyJO = cmds.getAttr(bone + ".jo", time=frame)[0]
 						# Setup
 						eularKey = ((eularKeyR[0] + eularKeyJO[0]), (eularKeyR[1] + eularKeyJO[1]), (eularKeyR[2] + eularKeyJO[2]))
 						# Convert and add
