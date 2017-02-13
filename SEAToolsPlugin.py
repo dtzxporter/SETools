@@ -268,10 +268,8 @@ def ExportEntireSceneAnim(selectedBones=False):
 						# Grab the Eular and convert to quat
 						eularKeyR = cmds.getAttr(bone + ".rotate", time=frame)[0]
 						eularKeyJO = cmds.getAttr(bone + ".jo", time=frame)[0]
-						# Setup
-						eularKey = ((eularKeyR[0] + eularKeyJO[0]), (eularKeyR[1] + eularKeyJO[1]), (eularKeyR[2] + eularKeyJO[2]))
 						# Convert and add
-						eularRot = OpenMaya.MEulerRotation(math.radians(eularKey[0]), math.radians(eularKey[1]), math.radians(eularKey[2]))
+						eularRot = OpenMaya.MEulerRotation(math.radians(eularKeyR[0]), math.radians(eularKeyR[1]), math.radians(eularKeyR[2])) + OpenMaya.MEulerRotation(math.radians(eularKeyJO[0]), math.radians(eularKeyJO[1]), math.radians(eularKeyJO[2]))
 						# Result
 						quatRot = eularRot.asQuaternion()
 						# Make rot
@@ -363,10 +361,8 @@ def ExportEntireFramesAnim(selectedBones=False):
 			# Grab the rotation for this bone here
 			eularKeyR = cmds.getAttr(bone + ".rotate", time=i)[0]
 			eularKeyJO = cmds.getAttr(bone + ".jo", time=i)[0]
-			# Setup
-			eularKey = ((eularKeyR[0] + eularKeyJO[0]), (eularKeyR[1] + eularKeyJO[1]), (eularKeyR[2] + eularKeyJO[2]))
 			# Convert and add
-			eularRot = OpenMaya.MEulerRotation(math.radians(eularKey[0]), math.radians(eularKey[1]), math.radians(eularKey[2]))
+			eularRot = OpenMaya.MEulerRotation(math.radians(eularKeyR[0]), math.radians(eularKeyR[1]), math.radians(eularKeyR[2])) + OpenMaya.MEulerRotation(math.radians(eularKeyJO[0]), math.radians(eularKeyJO[1]), math.radians(eularKeyJO[2]))
 			# Result
 			quatRot = eularRot.asQuaternion()
 			# Make rot
