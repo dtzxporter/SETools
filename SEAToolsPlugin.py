@@ -19,7 +19,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4.5)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
+	result = cmds.confirmDialog(message="---  SEA Tools plugin (v1.4.8)  ---\n\nDeveloped by DTZxPorter\n\nFormat design by SE2Dev", button=['OK'], defaultButton='OK', title="About SEA Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -101,10 +101,16 @@ def CreateMenu():
 	cmds.menuItem(divider=True)
 
 	# Export tools
-	cmds.menuItem(label="Export All -> SEAnim", command="SEAToolsPlugin.ExportEntireSceneAnim()")
+	cmds.menuItem(label="Export All (Keyed) -> SEAnim", command="SEAToolsPlugin.ExportEntireSceneAnim()")
 
 	# Export selected
-	cmds.menuItem(label="Export Selected -> SEAnim", command="SEAToolsPlugin.ExportSelectedAnim()")
+	cmds.menuItem(label="Export Selected (Keyed) -> SEAnim", command="SEAToolsPlugin.ExportSelectedAnim()")
+
+	# Export tools
+	cmds.menuItem(label="Export All (Full) -> SEAnim", command="SEAToolsPlugin.ExportEntireFramesAnim()")
+
+	# Export selected
+	cmds.menuItem(label="Export Selected (Full) -> SEAnim", command="SEAToolsPlugin.ExportFramesSelectedAnim()")
 
 	# Divide
 	cmds.menuItem(divider=True)
@@ -303,6 +309,100 @@ def ExportEntireSceneAnim(selectedBones=False):
 	resultAnim.save(exportPath)
 	# Done
 	print("The SEAnim was exported.")
+
+def ExportEntireFramesAnim(selectedBones=False):
+	# Export the whole scene (every frame from time to end)
+	print("Exporting SEAnim...")
+	# Get file
+	exportTo = cmds.fileDialog2(fileMode=0, fileFilter="SEAnim Files (*.seanim)", caption="Export SEAnim")
+	# Check
+	if exportTo == None or len(exportTo) == 0 or exportTo[0].strip() == "":
+		# Was blank
+		return None
+	# Setup path
+	exportPath = exportTo[0].strip()
+	# An anim
+	resultAnim = SEAnim.Anim()
+	# Used because we made this anim after the fact
+	resultAnim.header.animType = SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE
+	# Loop through bones in scene
+	allBones = cmds.ls(type='joint')
+	# Check if we just want selected bones
+	if selectedBones:
+		# Only list selected bones (Joints)
+		allBones = cmds.ls(selection=True, type='joint')
+	# A list of frames
+	framesList = []
+	# Grab start
+	startTime = cmds.playbackOptions(query=True, animationStartTime=True)
+	# Grab end
+	endTime = cmds.playbackOptions(query=True, animationEndTime=True)
+	# Loop
+	for bone in allBones:
+		# Our bone
+		boneUse = SEAnim.Bone()
+		# Set name
+		boneUse.name = bone
+		# We had keys
+		hadKeys = True
+		# Check if bone has keys for .t or .r
+		keysTranslate = cmds.keyframe(bone + ".translate", query=True, timeChange=True)
+		# framesAddedTranslate
+		framesAddedTranslate = []
+		# framesAddedRotate
+		framesAddedRotate = []
+		# Loop for every frame and add to lists
+		for i in xrange(0, int(endTime + 1)):
+			# Grab the translation for this bone here
+			transKey = cmds.getAttr(bone + ".translate", time=i)[0]
+			# Make and add key
+			boneUse.posKeys.append( SEAnim.KeyFrame(i, transKey) )
+			# Grab the rotation for this bone here
+			eularKey = cmds.getAttr(bone + ".rotate", time=i)[0]
+			# Convert and add
+			eularRot = OpenMaya.MEulerRotation(math.radians(eularKey[0]), math.radians(eularKey[1]), math.radians(eularKey[2]))
+			# Result
+			quatRot = eularRot.asQuaternion()
+			# Make rot
+			rotValue = (quatRot.x, quatRot.y, quatRot.z, quatRot.w)
+			# Make and add key
+			boneUse.rotKeys.append( SEAnim.KeyFrame(i, rotValue) )
+		# Check if we had any
+		if hadKeys:
+			# Add to anim
+			resultAnim.bones.append(boneUse)
+	# Check for SENotes
+	if (cmds.objExists("SENotes")):
+		# Get children and loop
+		noteTrackList = cmds.listRelatives("SENotes",type="transform")
+		# Loop
+		if noteTrackList is not None:
+			# Loop it
+			for note in noteTrackList:
+				# Get key'd values
+				noteKeys = cmds.keyframe(note + ".translateX", query=True, timeChange=True)
+				# Loop and add
+				if noteKeys is not None:
+					# Loop
+					for keyNote in noteKeys:
+						# Make and add
+						seaNote = SEAnim.Note()
+						# Set name
+						seaNote.name = note
+						# Set frame
+						seaNote.frame = keyNote
+						# Add
+						resultAnim.notes.append(seaNote)
+	# Frame count ( Get biggest # from list )
+	resultAnim.header.frameCount = endTime
+	# Save as file
+	resultAnim.save(exportPath)
+	# Done
+	print("The SEAnim was exported.")
+
+def ExportFramesSelectedAnim():
+	# Export selected bones only
+	ExportEntireFramesAnim(True)
 
 def ExportSelectedAnim():
 	# Export selected bones only
