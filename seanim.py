@@ -38,11 +38,11 @@ SEANIM_FLAGS = enum(
 	SEANIM_LOOPED = 1 << 0)
 
 
-class Info:
-	version = 1
-	magic = b'SEAnim'
-
+class Info(object):
+	__slots__ = ('version', 'magic')
 	def __init__(self, file=None):
+		self.version = 1
+		self.magic = b'SEAnim'
 		if file is not None:
 			self.load(file)
 
@@ -64,7 +64,14 @@ class Info:
 		bytes += struct.pack('h', self.version)
 		file.write(bytes)
 
-class Header:
+class Header(object):
+	__slots__ = (
+					'animType', 'animFlags',
+					'dataPresenceFlags', 'dataPropertyFlags',
+					'framerate', 'frameCount',
+					'boneCount', 'boneAnimModifierCount',
+					'noteCount'
+				)
 	def __init__(self, file=None):
 		self.animType = SEANIM_TYPE.SEANIM_TYPE_RELATIVE # Relative is the default
 		self.animFlags = 0x0
@@ -123,12 +130,13 @@ class Header:
 """
 	The Frame_t class is only ever used to get the size and format character used by frame indices in a given sanim file
 """
-class Frame_t:
+class Frame_t(object):
+	__slots__ = ('size', 'char')
 	def __init__(self, header):
-		if header.frameCount < 0xFF:
+		if header.frameCount - 1 <= 0xFF:
 			self.size = 1
 			self.char = 'B'
-		elif header.frameCount <= 0xFFFF:
+		elif header.frameCount - 1 <= 0xFFFF:
 			self.size = 2
 			self.char = 'h'
 		else: #if header.frameCount <= 0xFFFFFFFF:
@@ -138,9 +146,10 @@ class Frame_t:
 """
 	The Bone_t class is only ever used to get the size and format character used by frame indices in a given sanim file
 """
-class Bone_t:
+class Bone_t(object):
+	__slots__ = ('size', 'char')
 	def __init__(self, header):
-		if header.boneCount < 0xFF:
+		if header.boneCount <= 0xFF:
 			self.size = 1
 			self.char = 'B'
 		elif header.boneCount <= 0xFFFF:
@@ -153,7 +162,8 @@ class Bone_t:
 """
 	The Precision_t class is only ever used to get the size and format character used by vec3_t, quat_t, etc. in a given sanim file
 """
-class Precision_t:
+class Precision_t(object):
+	__slots__ = ('size', 'char')
 	def __init__(self, header):
 		if header.dataPropertyFlags & SEANIM_PROPERTY_FLAGS.SEANIM_PRECISION_HIGH:
 			self.size = 8
@@ -165,12 +175,19 @@ class Precision_t:
 """
 	A small class used for holding keyframe data 
 """
-class KeyFrame:
+class KeyFrame(object):
+	__slots__ = ('frame', 'data')
 	def __init__(self, frame, data):
 		self.frame = frame
 		self.data = data
 
-class Bone:
+class Bone(object):
+	__slots__ = (
+					'name', 'flags',
+					'locKeyCount', 'rotKeyCount', 'scaleKeyCount',
+					'posKeys', 'rotKeys', 'scaleKeys',
+					'useModifier', 'modifier'
+				)
 	def __init__(self, file=None):
 		self.name=""
 
@@ -210,8 +227,6 @@ class Bone:
 			bytes = file.read(frame_t.size)
 			data = struct.unpack('%c' % frame_t.char, bytes)
 			self.locKeyCount = data[0]
-
-			#print("  Reading %d locKeys at 0x%X" % (self.locKeyCount, file.tell() - 1))
 
 			for i in range(self.locKeyCount):
 				bytes = file.read(frame_t.size + 3 * precision_t.size)
@@ -272,11 +287,17 @@ class Bone:
 				bytes = struct.pack('=%c4%c' % (frame_t.char, precision_t.char), key.frame, key.data[0], key.data[1], key.data[2], key.data[3])
 				file.write(bytes)
 		
-		# TODO: Add support for scale
-		#if useScale:
+		if useScale:
+			bytes = struct.pack('%c' % frame_t.char, len(self.scaleKeys))
+			file.write(bytes)
+
+			for i, key in enumerate(self.scaleKeys):
+				bytes = struct.pack('=%c3%c' % (frame_t.char, precision_t.char), key.frame, key.data[0], key.data[1], key.data[2])
+				file.write(bytes)
 
 
-class Note:
+class Note(object):
+	__slots__ = ('frame', 'name')
 	def __init__(self, file=None, frame_t=None):
 		self.frame = -1
 		self.name = ""
@@ -305,7 +326,8 @@ class Note:
 		bytes = struct.pack('%ds' % (len(self.name) + 1), self.name.encode())
 		file.write(bytes)
 
-class Anim:
+class Anim(object):
+	__slots__ = ('__info', 'info', 'header', 'bones', 'boneAnimModifiers', 'notes')
 	def __init__(self, path=None):
 		self.__info = Info()
 		self.header = Header()
@@ -324,6 +346,8 @@ class Anim:
 		anim_scaleKeyCount = 0
 
 		self.header.boneCount = len(self.bones)
+		
+		max_frame_index = 0
 
 		for bone in self.bones:
 			bone.locKeyCount = len(bone.posKeys)
@@ -334,12 +358,24 @@ class Anim:
 			anim_rotKeyCount += bone.rotKeyCount
 			anim_scaleKeyCount += bone.scaleKeyCount
 
+			for key in bone.posKeys:
+				max_frame_index = max(max_frame_index, key.frame)
+			
+			for key in bone.rotKeys:
+				max_frame_index = max(max_frame_index, key.frame)
+
+			for key in bone.scaleKeys:
+				max_frame_index = max(max_frame_index, key.frame)
+
 		if anim_locKeyCount:
 			self.header.dataPresenceFlags |= SEANIM_PRESENCE_FLAGS.SEANIM_BONE_LOC
 		if anim_rotKeyCount:
 			self.header.dataPresenceFlags |= SEANIM_PRESENCE_FLAGS.SEANIM_BONE_ROT
 		if anim_scaleKeyCount:
 			self.header.dataPresenceFlags |= SEANIM_PRESENCE_FLAGS.SEANIM_BONE_SCALE
+
+		for note in self.notes:
+			max_frame_index = max(max_frame_index, note.frame)
 
 		self.header.noteCount = len(self.notes)
 
@@ -352,6 +388,10 @@ class Anim:
 		if looping:
 			self.header.animFlags |= SEANIM_FLAGS.SEANIM_LOOPED
 
+		# FrameCount represents the length of the animation in frames
+		# and since all animations start at frame 0 - we simply grab
+		# the max frame number (from keys / notes / etc.) and add 1 to it
+		self.header.frameCount = max_frame_index + 1
 
 	def load(self, path):
 		if LOG_READ_TIME:
