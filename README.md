@@ -1,4 +1,4 @@
-# SEToolsMaya (v1.5.5)
+# SEToolsMaya (v1.5.6)
 
 A .SE format import / export plugin for maya (2012+)
 
@@ -28,6 +28,9 @@ Replace the files in the `Documents\maya\<mayaversion>\scripts` folder with the 
 - Coming soon
 
 ## Changelog:
+
+*v1.5.6:*
+- Fix in seanim.py for scale export!
 
 *v1.5.5:*
 - Simplified import and export
