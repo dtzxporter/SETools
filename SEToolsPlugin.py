@@ -19,7 +19,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -552,9 +552,23 @@ def LoadSEAnimBuildCurve(filepath=""):
 			# Use animation default
 			BoneAnimType = anim.header.animType
 		# Fetch the bone in the scene
-		BoneDagPath = DagPathFromJoint(nsTag)
+		try:
+			# Load it
+			BoneDagPath = DagPathFromJoint(nsTag)
+		except:
+			# Log
+			print("WARN: Failed to get MDagPath for: " + nsTag)
+			# Go to next anim
+			continue
 		# Make a joint
-		BoneJoint = OpenMayaAnim.MFnIkJoint(BoneDagPath)
+		try:
+			# Make joint
+			BoneJoint = OpenMayaAnim.MFnIkJoint(BoneDagPath)
+		except:
+			# Log
+			print("WARN: Failed to get MFnIkJoint for: " + nsTag)
+			# Go to next anim
+			continue
 		# Set to rest rotation
 		BoneJoint.setOrientation(OpenMaya.MQuaternion(0, 0, 0, 1))
 		# Grab rest transform
