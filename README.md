@@ -33,6 +33,9 @@ Replace the files in the correct directory from the installation section with th
 
 ## Changelog:
 
+*v2.0.3:*
+- Bug fix for new scenes and old animation caches
+
 *v2.0.2:*
 - Better error logging
 

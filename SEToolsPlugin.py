@@ -19,7 +19,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0.3)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -440,25 +440,33 @@ SEAnimMergeOverride = False
 def ResetSceneAnim():
 	# Globals
 	global SEAnimUndoQueue
-	# Check if we have undo data
-	if len(SEAnimUndoQueue) > 0:
-		# We have data to undo
-		for undoable in reversed(SEAnimUndoQueue):
-			# Prepare to undo it
-			if cmds.objExists(undoable.tagName):
-				# Remove all keys
-				cmds.cutKey(undoable.tagName, time=(undoable.startFrame, undoable.endFrame), option="keys")
-				# We can edit it
-				if undoable.hasTranslate:
-					# Set translate property
-					cmds.setAttr(undoable.tagName + ".t", undoable.restTranslation[0], undoable.restTranslation[1], undoable.restTranslation[2])
-				if undoable.hasRotate:
-					# Set rotate property
-					cmds.setAttr(undoable.tagName + ".r", 0, 0, 0)
-					cmds.setAttr(undoable.tagName + ".jo", undoable.restRotation[0], undoable.restRotation[1], undoable.restRotation[2])
-				if undoable.hasScale:
-					# Set scale property
-					cmds.setAttr(undoable.tagName + ".scale", undoable.restScale[0], undoable.restScale[1], undoable.restScale[2])
+	# Check if this is a new scene or not
+	if cmds.objExists("SEAnimUndo"):
+		# Check if we have undo data
+		if len(SEAnimUndoQueue) > 0:
+			# We have data to undo
+			for undoable in reversed(SEAnimUndoQueue):
+				# Prepare to undo it
+				if cmds.objExists(undoable.tagName):
+					# Remove all keys
+					cmds.cutKey(undoable.tagName, time=(undoable.startFrame, undoable.endFrame), option="keys")
+					# We can edit it
+					if undoable.hasTranslate:
+						# Set translate property
+						cmds.setAttr(undoable.tagName + ".t", undoable.restTranslation[0], undoable.restTranslation[1], undoable.restTranslation[2])
+					if undoable.hasRotate:
+						# Set rotate property
+						cmds.setAttr(undoable.tagName + ".r", 0, 0, 0)
+						cmds.setAttr(undoable.tagName + ".jo", undoable.restRotation[0], undoable.restRotation[1], undoable.restRotation[2])
+					if undoable.hasScale:
+						# Set scale property
+						cmds.setAttr(undoable.tagName + ".scale", undoable.restScale[0], undoable.restScale[1], undoable.restScale[2])
+	else:
+		# Make it
+		UndoTracker = cmds.spaceLocator()
+		# Rename
+		cmds.rename(UndoTracker, "SEAnimUndo")
+		cmds.setAttr("SEAnimUndo.visibility", 0)
 	# Reset
 	SEAnimUndoQueue = []
 	# Clean up notetracks
