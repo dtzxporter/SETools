@@ -19,7 +19,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v1.5.5)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -31,6 +31,7 @@ def first(a, b):
 			return a
 	return None
 
+# Import file dialog, for importing .SE formats
 def ImportFileSelectDialog():
 	importFrom = None
 	if cmds.about(version=True)[:4] == "2012": # Support for newer versions
@@ -67,7 +68,9 @@ def ResolvePotentialAnimTypeOverride(tagname, boneAnimModifiers):
 				partag = partag[partag.find(":") + 1:]
 				# Continue
 			for modBone in boneAnimModifiers:
+				# Compare the parent
 				if partag == modBone.name:
+					# We are being overridden!
 					return modBone.modifier
 		return None
 	except:
@@ -79,38 +82,47 @@ def ImportSEAnim():
 	file_import = ImportFileSelectDialog()
 	# Check
 	if file_import == None:
+		# No file selected
 		pass
 	else:
+		# Ship file off
 		LoadSEAnim(file_import)
+
+# Clears the menu
+def DeleteMenu():
+	# Check for existing control, remove it if we can
+	if cmds.control(MENU_DATA['menu'][0], exists=True):
+		# Found it, delete it
+		cmds.deleteUI(MENU_DATA['menu'][0], menu=True)
 
 # Create the menu
 def CreateMenu():
 	# Set the diplay's parent
 	cmds.setParent(mel.eval("$temp1=$gMainWindow"))
-	# Check for existing control, remove it if we can
-	if cmds.control(MENU_DATA['menu'][0], exists=True):
-		cmds.deleteUI(MENU_DATA['menu'][0], menu=True)
+	
+	# Purge old one
+	DeleteMenu()
 	
 	# Recreate the base
 	menu = cmds.menu(MENU_DATA['menu'][0], label=MENU_DATA["menu"][1], tearOff=True)
 	
 	# Import tools
-	cmds.menuItem(label="Import <- SEAnim", command="SEAToolsPlugin.ImportSEAnim()")
+	cmds.menuItem(label="Import <- SEAnim", command=lambda x:ImportSEAnim())
 
 	# Divide
 	cmds.menuItem(divider=True)
 
 	# Export tools
-	cmds.menuItem(label="Export -> SEAnim", command="SEAToolsPlugin.ExportEntireSceneAnim()")
+	cmds.menuItem(label="Export -> SEAnim", command=lambda x:ExportEntireSceneAnim())
 
 	# Divide
 	cmds.menuItem(divider=True)
 
 	# Clean namespaces
-	cmds.menuItem(label="Clean Namespaces", command="SEAToolsPlugin.NamespaceClean()")
+	cmds.menuItem(label="Clean Namespaces", command=lambda x:NamespaceClean())
 
 	# Place notetrack
-	cmds.menuItem(label="Place Notetrack", command="SEAToolsPlugin.PlaceNote()")
+	cmds.menuItem(label="Place Notetrack", command=lambda x:PlaceNote())
 
 	# Divide
 	cmds.menuItem(divider=True)
@@ -122,7 +134,7 @@ def CreateMenu():
 	cmds.menuItem(label="Call of Duty", subMenu=True)
 
 	# Bind weapon to hand
-	cmds.menuItem(label="Attach Weapon to Rig", command="SEAToolsPlugin.WeaponBinder()")
+	cmds.menuItem(label="Attach Weapon to Rig", command=lambda x:WeaponBinder())
 
 	# Close out menu (Call of Duty)
 	cmds.setParent(game_menu, menu=True)
@@ -134,10 +146,16 @@ def CreateMenu():
 	cmds.menuItem(divider=True)
 
 	# Debug stuff
-	cmds.menuItem(label="Reload Plugin", command="reload(SEAToolsPlugin)")
+	cmds.menuItem(label="Reload Plugin", command=lambda x:ReloadMayaPlugin())
 
 	# About
-	cmds.menuItem(label="About", command="SEAToolsPlugin.AboutWindow()")
+	cmds.menuItem(label="About", command=lambda x:AboutWindow())
+
+# Reloads a maya plugin
+def ReloadMayaPlugin():
+	# Reload us as a plugin, be careful to unregister first!
+	cmds.unloadPlugin('SEToolsPlugin.py')
+	cmds.loadPlugin('SEToolsPlugin.py')
 
 # Bind the weapon to hands
 def WeaponBinder():
@@ -173,7 +191,7 @@ def PlaceNote():
 		cmds.rename(base_track, "SENotes")
 	# Notetrack name
 	noteName = "new_notetrack" + str(note_tracks)
-	# Now we can make the child
+	# Now we can make the child (if you have > 50000 notetracks, we got a problem...)
 	for npos in xrange(note_tracks, 50000):
 		# Setup
 		noteName = "new_notetrack" + str(npos)
@@ -191,6 +209,8 @@ def PlaceNote():
 	currentFrame = cmds.currentTime(query = True)
 	# Key it
 	cmds.setKeyframe(noteName, time = currentFrame)
+	# Log it
+	print("A new notetrack was created")
 
 # Cleans namespaces
 def NamespaceClean():
@@ -283,13 +303,13 @@ m33 = mmat[15]
 
 def ExportEntireSceneAnim():
 	# Export everything that's selected, if none, export all
-	print("Exporting SEAnim...")
-	# Get file
 	exportTo = cmds.fileDialog2(fileMode = 0, fileFilter = "SEAnim Files (*.seanim)", caption = "Export SEAnim")
 	# Check
 	if exportTo == None or len(exportTo) == 0 or exportTo[0].strip() == "":
 		# Was blank
 		return None
+	# Log
+	print("Exporting SEAnim...")
 	# Setup path
 	exportPath = exportTo[0].strip()
 	# An anim
@@ -382,13 +402,96 @@ def ExportEntireSceneAnim():
 	# Save as file
 	resultAnim.save(exportPath)
 	# Done
-	print("The SEAnim was exported.")
+	print("The SEAnim was exported")
 
+# Gets a dagpath from a bone name
+def DagPathFromJoint(name):
+	# Check for it
+	if not cmds.objExists(name):
+		return False
+	# Make selector
+	sList = OpenMaya.MSelectionList()
+	# Add it
+	sList.add(name)
+	# New Path
+	dResult = OpenMaya.MDagPath()
+	# Set it
+	sList.getDagPath(0, dResult)
+	# Return
+	return dResult
 
-#Load a .seanim file
+# A container for undoable data
+class SEAnimUndo:
+	tagName = ""
+	startFrame = 0
+	endFrame = 0
+	restRotation = [0, 0, 0]
+	restTranslation = [0, 0, 0]
+	restScale = [0, 0, 0]
+	hasTranslate = False
+	hasRotate = False
+	hasScale = False
+
+# A queue of undoable actions based on animation data
+SEAnimUndoQueue = []
+
+# Resets the scene using the SEAnimUndo data
+def ResetSceneAnim():
+	# Globals
+	global SEAnimUndoQueue
+	# Check if we have undo data
+	if len(SEAnimUndoQueue) > 0:
+		# We have data to undo
+		for undoable in reversed(SEAnimUndoQueue):
+			# Prepare to undo it
+			if cmds.objExists(undoable.tagName):
+				# Remove all keys
+				cmds.cutKey(undoable.tagName, time=(undoable.startFrame, undoable.endFrame), option="keys")
+				# We can edit it
+				if undoable.hasTranslate:
+					# Set translate property
+					cmds.setAttr(undoable.tagName + ".t", undoable.restTranslation[0], undoable.restTranslation[1], undoable.restTranslation[2])
+				if undoable.hasRotate:
+					# Set rotate property
+					cmds.setAttr(undoable.tagName + ".r", 0, 0, 0)
+					cmds.setAttr(undoable.tagName + ".jo", undoable.restRotation[0], undoable.restRotation[1], undoable.restRotation[2])
+				if undoable.hasScale:
+					# Set scale property
+					cmds.setAttr(undoable.tagName + ".scale", undoable.restScale[0], undoable.restScale[1], undoable.restScale[2])
+	# Reset
+	SEAnimUndoQueue = []
+	# Clean up notetracks
+	if cmds.objExists("SENotes"):
+		# Delete it
+		cmds.delete("SENotes")
+
+# Sets an anim curve to a bone, returns resulting curve
+def GetAnimCurve(joint, attr, curveType):
+	# Get the plug
+	attrPlug = OpenMaya.MFnDependencyNode(joint).findPlug(attr, False)
+	# Make it keyable
+	attrPlug.setKeyable(True)
+	# Make it unlocked
+	attrPlug.setLocked(False)
+	# Check if we must detatch or remove an existing one
+	if attrPlug.isConnected():
+		# Attach to it
+		return OpenMayaAnim.MFnAnimCurve(attrPlug)
+	# Apply the curve to the bone
+	animCurve = OpenMayaAnim.MFnAnimCurve()
+	# Attach it
+	animCurve.create(attrPlug, curveType)
+	# Return the curve
+	return animCurve
+
+# Loads a .seanim file
 def LoadSEAnim(filepath=""):
-	# Log
+	# Globals
+	global SEAnimUndoQueue
+	# Load a seanim by building a curve
 	print("Loading SEAnim file...")
+	# Reset scene
+	ResetSceneAnim()
 	# Load the file using helper lib
 	anim = SEAnim.Anim(filepath)
 	# Starting frame
@@ -401,17 +504,16 @@ def LoadSEAnim(filepath=""):
 	cmds.playbackOptions(maxTime=end_frame, aet=end_frame)
 	# Turn off autoKey
 	mel.eval("autoKeyframe -state off")
-	# Make sure scene is in CM measurment
+	# Make sure scene is in CM / Radians measurment
 	mel.eval("currentUnit -linear \"cm\"")
+	mel.eval("currentUnit -angle \"rad\"")
 	# Setup progress
 	gMainProgressBar = mel.eval('$tmp = $gMainProgressBar')
 	# Count
 	maxCount = len(anim.bones)
 	# Create the bar
 	cmds.progressBar(gMainProgressBar, edit=True, beginProgress=True, isInterruptable=False, status='Loading SEAnim...', maxValue=maxCount)
-	# Import the actual keyframes
-	i = 0
-	# Loop through tag names
+	# Loop through bones
 	for tag in anim.bones:
 		# Progress
 		cmds.progressBar(gMainProgressBar, edit=True, step=1)
@@ -425,129 +527,197 @@ def LoadSEAnim(filepath=""):
 				nsTag = "*:" + nsTag
 				# Check once more
 				if cmds.objExists(nsTag + ".t") == False:
-					# Continue the loop
-					i += 1
 					# Go
 					continue
 		else:
 			# Continue
 			continue
+		# Create undoable data
+		BoneUndo = SEAnimUndo()
+		# Set tag name
+		BoneUndo.tagName = nsTag
+		# Set frames
+		BoneUndo.startFrame = start_frame
+		BoneUndo.endFrame = end_frame + 1
+		# Set undo data
+		BoneUndo.restRotation = cmds.getAttr(nsTag + ".jo")[0]
+		BoneUndo.restTranslation = cmds.getAttr(nsTag + ".t")[0]
+		BoneUndo.restScale = cmds.getAttr(nsTag + ".scale")[0]
 		# Check for parent modifiers
-		animType = ResolvePotentialAnimTypeOverride(nsTag, anim.boneAnimModifiers)
+		BoneAnimType = ResolvePotentialAnimTypeOverride(nsTag, anim.boneAnimModifiers)
 		# Check if we need to use the anim's default type
-		if animType is None:
+		if BoneAnimType is None:
 			# Use animation default
-			animType = anim.header.animType
-
-		# Generate the rest keyframes which are used as a base for the following frames (for only the bones that are used)
-		try:
-			if len(tag.rotKeys) > 1: # Has a lot of rotation
-				# Reset bone orientation
-				cmds.setAttr(nsTag + ".jo", 0, 0, 0)
-				# Reset bone rotation
-				cmds.setAttr(nsTag + ".rotate", 0, 0, 0)
-			else: # Has no rotation but needs to be reset, should work..
-					# Reset bone orientation
-					cmds.setAttr(nsTag + ".jo", 0, 0, 0)
-					# Reset bone rotation
-					cmds.setAttr(nsTag + ".rotate", 0, 0, 0)
-			# Set key
-			cmds.setKeyframe(nsTag, time=start_frame)
-		except:
-			pass
-		# Grab current position data
-		bone_rest = cmds.getAttr(nsTag + ".t")[0]
-		# Loop through positions
-		for key in tag.posKeys:
-			# Viewanims are SEANIM_TYPE_ABSOLUTE
-			if animType == SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE:
-				# Set the absolute key
-				cmds.setKeyframe(nsTag, v=key.data[0], at="translateX", time=key.frame)
-				cmds.setKeyframe(nsTag, v=key.data[1], at="translateY", time=key.frame)
-				cmds.setKeyframe(nsTag, v=key.data[2], at="translateZ", time=key.frame)
-				# Check if it's static
-				if len(tag.posKeys) == 1: # Single pos, change the value on the bone
-					# Set it
-					cmds.setAttr(nsTag + ".t", key.data[0], key.data[0], key.data[0])
-			else: # Use DELTA / RELATIVE results (ADDITIVE is unknown)
-				# Set the relative key
-				cmds.setKeyframe(nsTag, v=(bone_rest[0] + key.data[0]), at="translateX", time=key.frame)
-				cmds.setKeyframe(nsTag, v=(bone_rest[1] + key.data[1]), at="translateY", time=key.frame)
-				cmds.setKeyframe(nsTag, v=(bone_rest[2] + key.data[2]), at="translateZ", time=key.frame)
-				# Check if it's static
-				if len(tag.posKeys) == 1: # Single pos, change the value on the bone
-					# Set it
-					cmds.setAttr(nsTag + ".t", (bone_rest[0] + key.data[0]), (bone_rest[1] + key.data[1]), (bone_rest[2] + key.data[2]))
-		# Loop through rotations
-		for key in tag.rotKeys:
-			# Set the rotation
-			quat = OpenMaya.MQuaternion(key.data[0], key.data[1], key.data[2], key.data[3])
+			BoneAnimType = anim.header.animType
+		# Fetch the bone in the scene
+		BoneDagPath = DagPathFromJoint(nsTag)
+		# Make a joint
+		BoneJoint = OpenMayaAnim.MFnIkJoint(BoneDagPath)
+		# Set to rest rotation
+		BoneJoint.setOrientation(OpenMaya.MQuaternion(0, 0, 0, 1))
+		# Grab rest transform
+		BoneRestTransform = BoneJoint.getTranslation(OpenMaya.MSpace.kTransform)
+		# Loop through translation keys (if we have any)
+		if len(tag.posKeys) > 0:
+			# Set that we have translations
+			BoneUndo.hasTranslate = True
+			# We got them, create the curves first
+			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "translateX", 1)
+			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "translateY", 1)
+			BoneCurveZ = GetAnimCurve(BoneDagPath.transform(), "translateZ", 1)
+			# Get key
+			key = tag.posKeys[0]
+			# Set initial pose for the bone
+			if BoneAnimType == SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE:
+				# We just set the position
+				BoneJoint.setTranslation(OpenMaya.MVector(key.data[0], key.data[1], key.data[2]), OpenMaya.MSpace.kTransform)
+			else:
+				# It's relative, add rest transform
+				BoneJoint.setTranslation(OpenMaya.MVector(key.data[0] + BoneRestTransform.x, key.data[1] + BoneRestTransform.y, key.data[2] + BoneRestTransform.z), OpenMaya.MSpace.kTransform)
+			# Loop through keys
+			for key in tag.posKeys:
+				# Check animation type to see what data we need
+				if BoneAnimType == SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE:
+					# Add absolute keyframe
+					BoneCurveX.addKeyframe(OpenMaya.MTime(key.frame), key.data[0], 2, 2)
+					BoneCurveY.addKeyframe(OpenMaya.MTime(key.frame), key.data[1], 2, 2)
+					BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), key.data[2], 2, 2)
+				else:
+					# Add relative keyframe
+					BoneCurveX.addKeyframe(OpenMaya.MTime(key.frame), key.data[0] + BoneRestTransform.x, 2, 2)
+					BoneCurveY.addKeyframe(OpenMaya.MTime(key.frame), key.data[1] + BoneRestTransform.y, 2, 2)
+					BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), key.data[2] + BoneRestTransform.z, 2, 2)
+		# Loop through scale keys (if we have any)
+		if len(tag.scaleKeys) > 0:
+			# Set that we have scales
+			BoneUndo.hasScale = True
+			# We got them, create the curves first
+			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "scaleX", 1)
+			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "scaleY", 1)
+			BoneCurveZ = GetAnimCurve(BoneDagPath.transform(), "scaleZ", 1)
+			# Get key
+			key = tag.scaleKeys[0]
+			# Set initial scale for the bone
+			cmds.setAttr(nsTag + ".scale", key.data[0], key.data[1], key.data[2])
+			# Loop through keys
+			for key in tag.scaleKeys:
+				# Add scale keyframe
+				BoneCurveX.addKeyframe(OpenMaya.MTime(key.frame), key.data[0], 2, 2)
+				BoneCurveY.addKeyframe(OpenMaya.MTime(key.frame), key.data[1], 2, 2)
+				BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), key.data[2], 2, 2)
+		# Loop through rotation keys (if we have any)
+		if len(tag.rotKeys) > 0:
+			# Set that we have rotations
+			BoneUndo.hasRotate = True
+			# We got them, create the curves first
+			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "rotateX", 1)
+			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "rotateY", 1)
+			BoneCurveZ = GetAnimCurve(BoneDagPath.transform(), "rotateZ", 1)
+			# Get key
+			key = tag.rotKeys[0]
+			# Set initial pose for the bone
+			QuatData = OpenMaya.MQuaternion(key.data[0], key.data[1], key.data[2], key.data[3])
+			# Set rotate values
+			cmds.setAttr(nsTag + ".r", QuatData.x, QuatData.y, QuatData.z)
 			# Convert to euler
-			euler_rot = quat.asEulerRotation()
-			# Reset it's JO
-			cmds.setAttr(nsTag + ".jo", 0, 0, 0)
-			# Set the matrix
-			cmds.setAttr(nsTag + ".r", math.degrees(euler_rot.x), math.degrees(euler_rot.y), math.degrees(euler_rot.z))
-			# Key the frame
-			cmds.setKeyframe(nsTag, at="rotate", time=key.frame)
-		# Loop through scales
-		for key in tag.scaleKeys:
-			# Set the scale keys
-			cmds.setKeyframe(nsTag, v=key.data[0], at="scaleX", time=key.frame)
-			cmds.setKeyframe(nsTag, v=key.data[1], at="scaleY", time=key.frame)
-			cmds.setKeyframe(nsTag, v=key.data[2], at="scaleZ", time=key.frame)
-			# Check if it's static
-			if len(tag.scaleKeys) == 1: # Single scale, change the value on the bone
-				# Set it
-				cmds.setAttr(nsTag + ".scale", key.data[0], key.data[1], key.data[2])
-		# Rotation interpolation (Only for eular angles)
-		mel.eval("rotationInterpolation -c quaternion \"" + nsTag + ".rotateX\" \"" + nsTag + ".rotateY\" \"" + nsTag + ".rotateZ\"")
-		# Try to interpol
-		try:
-			# Linear interpolation (Eular angles)
-			cmds.select(nsTag)
-			# Transform selection
-			mel.eval("keyTangent -e -itt linear -ott linear")
-		except:
-			# Nothing
-			pass
-		# Clear selection
-		cmds.select(clear=True)
-		# Basic counter
-		i += 1
+			EularData = QuatData.asEulerRotation()
+			# Loop through keys
+			for key in tag.rotKeys:
+				# Add rotation keyframe (convert to eular)
+				QuatData = OpenMaya.MQuaternion(key.data[0], key.data[1], key.data[2], key.data[3])
+				# Convert to euler
+				EularData = QuatData.asEulerRotation()
+				# Add rotation keyframe
+				BoneCurveX.addKeyframe(OpenMaya.MTime(key.frame), EularData.x, 2, 2)
+				BoneCurveY.addKeyframe(OpenMaya.MTime(key.frame), EularData.y, 2, 2)
+				BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), EularData.z, 2, 2)
+			# Set rotation interpolation (Why the fuck does the api not expose this...)
+			mel.eval("rotationInterpolation -c quaternion \"" + nsTag + ".rotateX\" \"" + nsTag + ".rotateY\" \"" + nsTag + ".rotateZ\"")
+		# Add undo and go
+		SEAnimUndoQueue.append(BoneUndo)
 	# End progress
 	cmds.progressBar(gMainProgressBar, edit=True, endProgress=True)
-	# Notetracks
-	base_track = cmds.spaceLocator()
-	# Rename
-	cmds.rename(base_track, "SENotes")
-	# Loop
+	# Import notetracks (if any)
+	if not cmds.objExists("SENotes"):
+		# Make the base
+		BaseNote = cmds.spaceLocator()
+		# Rename
+		cmds.rename(BaseNote, "SENotes")
+	# Loop through the notes
 	for note in anim.notes:
 		# Try to key it
 		try:
 			# Clean the note name
 			cleanNote = CleanNote(note.name)
 			# Check if it exists
-			if cmds.objExists(cleanNote):
-				# We have it, key it
-				cmds.setKeyframe(cleanNote, time=note.frame)
-			else:
-				# We need to make it
-				notetrack = cmds.spaceLocator()
+			if not cmds.objExists(cleanNote):
+				# We must make it
+				NewNote = cmds.spaceLocator()
 				# Rename
-				cmds.rename(notetrack, cleanNote)
+				cmds.rename(NewNote, cleanNote)
 				# Parent it
 				mel.eval("parent " + cleanNote + " SENotes")
-				# Key it
-				cmds.setKeyframe(cleanNote, time=note.frame)
+			# Now grab the curve, and add the key
+			NoteCurve = GetAnimCurve(DagPathFromJoint(cleanNote).transform(), "translateX", 1)
+			# Add the key
+			NoteCurve.addKeyframe(OpenMaya.MTime(note.frame), 0, 2, 2)
 		except:
 			# Nothing
 			pass
-
 	# Reset time
 	cmds.currentTime(start_frame)
 	# End
-	print("The animation has been loaded.")
+	print("The animation has been loaded")
 
-# Make the menu
-CreateMenu()
+# Class to handle import / export
+class SEAnimFileManager(OpenMayaMPx.MPxFileTranslator):
+	def __init__(self):
+		OpenMayaMPx.MPxFileTranslator.__init__(self)
+	def haveWriteMethod(self):
+		return False
+	def haveReadMethod(self):
+		return True
+	def identifyFile(self, file, buf, size):
+		return OpenMayaMPx.MPxFileTranslator.kIsMyFileType
+	def filter(self):
+		return "*.seanim"
+	def defaultExtension(self):
+		return "seanim"
+	def writer(self, fileObject, optionString, accessMode):
+		print("TODO: Exporting")
+	def reader(self, fileObject, optionString, accessMode):
+		fileName = fileObject.fullName()
+		LoadSEAnim(fileName)
+
+# Proxy to the register object
+def ProxySEAnimRegister():
+	# Proxy to the handler
+    return OpenMayaMPx.asMPxPtr(SEAnimFileManager())   
+
+# Initialize plugin
+def initializePlugin(mObject):
+	# Register the plugin
+	mPlugin = OpenMayaMPx.MFnPlugin(mObject, "DTZxPorter", "1.0", "Any")
+	# Try and register the file translators
+	try:
+		# Register seanim
+		mPlugin.registerFileTranslator("SEAnim", None, ProxySEAnimRegister)
+	except:
+		# Log the error
+		print("Failed to register SETools!")
+	# If we got here, setup the menu
+	CreateMenu()
+
+# Unload the plugin
+def uninitializePlugin(mObject):
+	# Get the plugin instance
+	mPlugin = OpenMayaMPx.MFnPlugin(mObject)
+	# Try and unregister the file translators
+	try:
+		# Unregister seanim
+		mPlugin.deregisterFileTranslator("SEAnim")
+	except:
+		# Log error
+		print("Failed to unload SETools!")
+	# If we got here, clean up the menu
+	DeleteMenu()

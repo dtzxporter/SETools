@@ -1,6 +1,6 @@
-# SEToolsMaya (v1.5.6)
+# SETools - Maya (v2.0)
 
-A .SE format import / export plugin for maya (2012+)
+A .SE format import / export plugin for Maya (2012+)
 
 *.SE formats are open-sourced formats optimized for next-generation modeling and animation. They are free to be used in any project, game, software, etc with the hopes that people will adapt the standard unlike other formats available.*
 
@@ -9,18 +9,22 @@ A .SE format import / export plugin for maya (2012+)
 
 ## Installation:
 
-Download the latest [seanim.py](https://raw.githubusercontent.com/dtzxporter/SEATools/master/seanim.py) and [SEAToolsPlugin.py](https://raw.githubusercontent.com/dtzxporter/SEATools/master/SEAToolsPlugin.py) from the repo and save them in `Documents\maya\<mayaversion>\scripts`
+Download the latest [seanim.py](https://raw.githubusercontent.com/dtzxporter/SETools/master/seanim.py) and [SEToolsPlugin.py](https://raw.githubusercontent.com/dtzxporter/SETools/master/SEToolsPlugin.py) from the repo and save them in the following directory depending on your OS and Maya version:
+- 32bit Windows: C:\Program Files(x86)\AutoDesk\Maya-ver\bin\plug-ins\
+- 64bit Windows: C:\Program Files\AutoDesk\Maya-ver\bin\plug-ins\
 
-If you have a usersetup.mel edit it and put `python("import SEAToolsPlugin");` on it's own line, otherwise create this file and add the line to it. Close and reopen maya to see the new SEA Tools menu.
+Next, you must open the plugin manager using `Window->Settings/Preferences->Plugin Manager` once there find `SEToolsPlugin.py` and check off the following:
+- Loaded (Loads the plugin)
+- Auto load (Loads the plugin every launch)
 
 ## Updating:
 
-Replace the files in the `Documents\maya\<mayaversion>\scripts` folder with the new ones AND delete all of the `.pyc` files. Go to "SE Tools->Reload" Plugin to finish.
+Replace the files in the correct directory from the installation section with the new ones AND delete all of the `.pyc` files. Go to "SE Tools->Reload" Plugin to finish. If an error occures, you must simply reload Maya.
 
 ## Usage:
 
 *Animations:*
-- To import an anim use "SE Tools -> Import SEAnim" this will import an anim onto an already binded scene.
+- To import an anim use "SE Tools -> Import SEAnim" or drag and drop a file, this will import an anim onto an already binded scene.
 - To export, either select the bones to use (or select none for all), set the end scene time to the animation end time, then use "SE Tools -> Export SEAnim" this will export the animation to a .seanim file.
 - To place a notetrack use "SE Tools -> Place Notetrack" this will place a notetrack named "new_notetrack" at the current scene time, you can rename it using the object browser on the left.
 
@@ -28,6 +32,15 @@ Replace the files in the `Documents\maya\<mayaversion>\scripts` folder with the 
 - Coming soon
 
 ## Changelog:
+
+*v2.0:*
+- NOTICE: New install method, please completely remove the old `SETools` from scripts / usersetup.mel then follow the new install instructions!
+- Rewrite of import system
+- About 5x faster on import
+- Drag and drop enabled
+- Anim merge support
+- Destructor arrays
+- Bug fixes
 
 *v1.5.6:*
 - Fix in seanim.py for scale export!
