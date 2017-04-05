@@ -1,4 +1,4 @@
-# SETools - Maya (v2.0)
+# SETools - Maya (v2.0.1)
 
 A .SE format import / export plugin for Maya (2012+)
 
@@ -32,6 +32,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.0.1:*
+- Changed a few names to avoid a stupid Maya cache issue
 
 *v2.0:*
 - NOTICE: New install method, please completely remove the old `SETools` from scripts / usersetup.mel then follow the new install instructions!

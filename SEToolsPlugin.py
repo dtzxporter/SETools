@@ -19,7 +19,7 @@ VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_l
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -86,7 +86,7 @@ def ImportSEAnim():
 		pass
 	else:
 		# Ship file off
-		LoadSEAnim(file_import)
+		LoadSEAnimBuildCurve(file_import)
 
 # Clears the menu
 def DeleteMenu():
@@ -434,6 +434,7 @@ class SEAnimUndo:
 
 # A queue of undoable actions based on animation data
 SEAnimUndoQueue = []
+SEAnimMergeOverride = False
 
 # Resets the scene using the SEAnimUndo data
 def ResetSceneAnim():
@@ -485,12 +486,13 @@ def GetAnimCurve(joint, attr, curveType):
 	return animCurve
 
 # Loads a .seanim file
-def LoadSEAnim(filepath=""):
+def LoadSEAnimBuildCurve(filepath=""):
 	# Globals
 	global SEAnimUndoQueue
+	global SEAnimMergeOverride
 	# Load a seanim by building a curve
 	print("Loading SEAnim file...")
-	# Reset scene
+	# Reset scene, todo check for additive types, also check override
 	ResetSceneAnim()
 	# Load the file using helper lib
 	anim = SEAnim.Anim(filepath)
@@ -687,7 +689,7 @@ class SEAnimFileManager(OpenMayaMPx.MPxFileTranslator):
 		print("TODO: Exporting")
 	def reader(self, fileObject, optionString, accessMode):
 		fileName = fileObject.fullName()
-		LoadSEAnim(fileName)
+		LoadSEAnimBuildCurve(fileName)
 
 # Proxy to the register object
 def ProxySEAnimRegister():
