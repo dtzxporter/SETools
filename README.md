@@ -1,4 +1,4 @@
-# SETools - Maya (v2.0.2)
+# SETools - Maya (v2.0.3)
 
 A .SE format import / export plugin for Maya (2012+)
 
