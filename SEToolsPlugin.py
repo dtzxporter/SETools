@@ -17,9 +17,11 @@ MENU_DATA = {'menu' : ["SEAToolsPluginMenu", "SE Tools", None, None, None]}
 GUN_BASE_TAGS = ["j_gun", "j_gun1", "tag_weapon", "tag_weapon1"]
 VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_left"]
 
+MAX_FRAMELEN = 9999999
+
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.0.3)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -88,6 +90,18 @@ def ImportSEAnim():
 		# Ship file off
 		LoadSEAnimBuildCurve(file_import)
 
+# Merge Importer
+def ImportMergeSEAnim():
+	# Get a file to import
+	file_import = ImportFileSelectDialog()
+	# Check
+	if file_import == None:
+		# No file selected
+		pass
+	else:
+		# Ship file off, allow merging of this anim with a current scene one
+		LoadSEAnimBuildCurve(file_import, True)
+
 # Clears the menu
 def DeleteMenu():
 	# Check for existing control, remove it if we can
@@ -108,6 +122,9 @@ def CreateMenu():
 	
 	# Import tools
 	cmds.menuItem(label="Import <- SEAnim", command=lambda x:ImportSEAnim())
+
+	# Import and Merge
+	cmds.menuItem(label="Import and Merge <- SEAnim", command=lambda x:ImportMergeSEAnim())
 
 	# Divide
 	cmds.menuItem(divider=True)
@@ -404,11 +421,52 @@ def ExportEntireSceneAnim():
 	# Done
 	print("The SEAnim was exported")
 
-# Gets a dagpath from a bone name
-def DagPathFromJoint(name):
+# Loop through and reset scene bones
+def ResetSceneAnim():
+	# Loop through them all
+	SceneJoints = cmds.ls(type="joint")
+	# Loop
+	for name in SceneJoints:
+		# Purge keys
+		cmds.cutKey(name, time=(0, MAX_FRAMELEN), option="keys")
+		# Check for undo
+		if (cmds.objExists(name + ".seanimUndoT")):
+			# Reset to it
+			ResetTranslation = cmds.getAttr(name + ".seanimUndoT")[0]
+			ResetScale = cmds.getAttr(name + ".seanimUndoS")[0]
+			ResetRotation = cmds.getAttr(name + ".seanimUndoR")[0]
+			# Apply
+			cmds.setAttr(name + ".t", ResetTranslation[0], ResetTranslation[1], ResetTranslation[2])
+			cmds.setAttr(name + ".scale", ResetScale[0], ResetScale[1], ResetScale[2])
+			cmds.setAttr(name + ".r", 0, 0, 0)
+			cmds.setAttr(name + ".jo", ResetRotation[0], ResetRotation[1], ResetRotation[2])
+	# Remove notetracks
+	if cmds.objExists("SENotes"):
+		# Delete
+		cmds.delete("SENotes")
+
+# Processes a joint, creating it's rest position, and returning a dag path
+def DagPathFromJoint(name, needsRest=True):
 	# Check for it
 	if not cmds.objExists(name):
+		# Not found in scene
 		return False
+	# Check to add
+	if needsRest:
+		# Check for the attr (to set rest pos)
+		if not cmds.objExists(name + ".seanimUndoT"):
+			# We need to setup the undo data
+			ResetTranslation = cmds.getAttr(name + ".t")[0]
+			ResetScale = cmds.getAttr(name + ".scale")[0]
+			ResetRotation = cmds.getAttr(name + ".jo")[0]
+			# Make the attributes
+			cmds.addAttr(name, longName="seanimUndoT", dataType="double3")
+			cmds.addAttr(name, longName="seanimUndoS", dataType="double3")
+			cmds.addAttr(name, longName="seanimUndoR", dataType="double3")
+			# Set them
+			cmds.setAttr(name + ".seanimUndoT", ResetTranslation[0], ResetTranslation[1], ResetTranslation[2], type="double3")
+			cmds.setAttr(name + ".seanimUndoS", ResetScale[0], ResetScale[1], ResetScale[2], type="double3")
+			cmds.setAttr(name + ".seanimUndoR", ResetRotation[0], ResetRotation[1], ResetRotation[2], type="double3")
 	# Make selector
 	sList = OpenMaya.MSelectionList()
 	# Add it
@@ -419,60 +477,6 @@ def DagPathFromJoint(name):
 	sList.getDagPath(0, dResult)
 	# Return
 	return dResult
-
-# A container for undoable data
-class SEAnimUndo:
-	tagName = ""
-	startFrame = 0
-	endFrame = 0
-	restRotation = [0, 0, 0]
-	restTranslation = [0, 0, 0]
-	restScale = [0, 0, 0]
-	hasTranslate = False
-	hasRotate = False
-	hasScale = False
-
-# A queue of undoable actions based on animation data
-SEAnimUndoQueue = []
-SEAnimMergeOverride = False
-
-# Resets the scene using the SEAnimUndo data
-def ResetSceneAnim():
-	# Globals
-	global SEAnimUndoQueue
-	# Check if this is a new scene or not
-	if cmds.objExists("SEAnimUndo"):
-		# Check if we have undo data
-		if len(SEAnimUndoQueue) > 0:
-			# We have data to undo
-			for undoable in reversed(SEAnimUndoQueue):
-				# Prepare to undo it
-				if cmds.objExists(undoable.tagName):
-					# Remove all keys
-					cmds.cutKey(undoable.tagName, time=(undoable.startFrame, undoable.endFrame), option="keys")
-					# We can edit it
-					if undoable.hasTranslate:
-						# Set translate property
-						cmds.setAttr(undoable.tagName + ".t", undoable.restTranslation[0], undoable.restTranslation[1], undoable.restTranslation[2])
-					if undoable.hasRotate:
-						# Set rotate property
-						cmds.setAttr(undoable.tagName + ".r", 0, 0, 0)
-						cmds.setAttr(undoable.tagName + ".jo", undoable.restRotation[0], undoable.restRotation[1], undoable.restRotation[2])
-					if undoable.hasScale:
-						# Set scale property
-						cmds.setAttr(undoable.tagName + ".scale", undoable.restScale[0], undoable.restScale[1], undoable.restScale[2])
-	else:
-		# Make it
-		UndoTracker = cmds.spaceLocator()
-		# Rename
-		cmds.rename(UndoTracker, "SEAnimUndo")
-		cmds.setAttr("SEAnimUndo.visibility", 0)
-	# Reset
-	SEAnimUndoQueue = []
-	# Clean up notetracks
-	if cmds.objExists("SENotes"):
-		# Delete it
-		cmds.delete("SENotes")
 
 # Sets an anim curve to a bone, returns resulting curve
 def GetAnimCurve(joint, attr, curveType):
@@ -494,14 +498,9 @@ def GetAnimCurve(joint, attr, curveType):
 	return animCurve
 
 # Loads a .seanim file
-def LoadSEAnimBuildCurve(filepath=""):
-	# Globals
-	global SEAnimUndoQueue
-	global SEAnimMergeOverride
+def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 	# Load a seanim by building a curve
 	print("Loading SEAnim file...")
-	# Reset scene, todo check for additive types, also check override
-	ResetSceneAnim()
 	# Load the file using helper lib
 	anim = SEAnim.Anim(filepath)
 	# Starting frame
@@ -517,9 +516,13 @@ def LoadSEAnimBuildCurve(filepath=""):
 	# Make sure scene is in CM / Radians measurment
 	mel.eval("currentUnit -linear \"cm\"")
 	mel.eval("currentUnit -angle \"rad\"")
+	# Reset scene if need be, todo, check anim type
+	if not mergeOverride:
+		# Reset it
+		ResetSceneAnim()
 	# Setup progress
 	gMainProgressBar = mel.eval('$tmp = $gMainProgressBar')
-	# Count
+	# Count of bones (used for progress)
 	maxCount = len(anim.bones)
 	# Create the bar
 	cmds.progressBar(gMainProgressBar, edit=True, beginProgress=True, isInterruptable=False, status='Loading SEAnim...', maxValue=maxCount)
@@ -542,17 +545,6 @@ def LoadSEAnimBuildCurve(filepath=""):
 		else:
 			# Continue
 			continue
-		# Create undoable data
-		BoneUndo = SEAnimUndo()
-		# Set tag name
-		BoneUndo.tagName = nsTag
-		# Set frames
-		BoneUndo.startFrame = start_frame
-		BoneUndo.endFrame = end_frame + 1
-		# Set undo data
-		BoneUndo.restRotation = cmds.getAttr(nsTag + ".jo")[0]
-		BoneUndo.restTranslation = cmds.getAttr(nsTag + ".t")[0]
-		BoneUndo.restScale = cmds.getAttr(nsTag + ".scale")[0]
 		# Check for parent modifiers
 		BoneAnimType = ResolvePotentialAnimTypeOverride(nsTag, anim.boneAnimModifiers)
 		# Check if we need to use the anim's default type
@@ -565,16 +557,14 @@ def LoadSEAnimBuildCurve(filepath=""):
 			BoneDagPath = DagPathFromJoint(nsTag)
 		except:
 			# Log
-			print("WARN: Failed to get MDagPath for: " + nsTag)
-			# Go to next anim
-			continue
+			print("SEAnim -> WARN: Failed to get MDagPath for: " + nsTag)
 		# Make a joint
 		try:
 			# Make joint
 			BoneJoint = OpenMayaAnim.MFnIkJoint(BoneDagPath)
 		except:
 			# Log
-			print("WARN: Failed to get MFnIkJoint for: " + nsTag)
+			print("SEAnim -> WARN: Failed to get MFnIkJoint for: " + nsTag)
 			# Go to next anim
 			continue
 		# Set to rest rotation
@@ -583,8 +573,6 @@ def LoadSEAnimBuildCurve(filepath=""):
 		BoneRestTransform = BoneJoint.getTranslation(OpenMaya.MSpace.kTransform)
 		# Loop through translation keys (if we have any)
 		if len(tag.posKeys) > 0:
-			# Set that we have translations
-			BoneUndo.hasTranslate = True
 			# We got them, create the curves first
 			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "translateX", 1)
 			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "translateY", 1)
@@ -613,8 +601,6 @@ def LoadSEAnimBuildCurve(filepath=""):
 					BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), key.data[2] + BoneRestTransform.z, 2, 2)
 		# Loop through scale keys (if we have any)
 		if len(tag.scaleKeys) > 0:
-			# Set that we have scales
-			BoneUndo.hasScale = True
 			# We got them, create the curves first
 			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "scaleX", 1)
 			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "scaleY", 1)
@@ -631,8 +617,6 @@ def LoadSEAnimBuildCurve(filepath=""):
 				BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), key.data[2], 2, 2)
 		# Loop through rotation keys (if we have any)
 		if len(tag.rotKeys) > 0:
-			# Set that we have rotations
-			BoneUndo.hasRotate = True
 			# We got them, create the curves first
 			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "rotateX", 1)
 			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "rotateY", 1)
@@ -657,8 +641,6 @@ def LoadSEAnimBuildCurve(filepath=""):
 				BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), EularData.z, 2, 2)
 			# Set rotation interpolation (Why the fuck does the api not expose this...)
 			mel.eval("rotationInterpolation -c quaternion \"" + nsTag + ".rotateX\" \"" + nsTag + ".rotateY\" \"" + nsTag + ".rotateZ\"")
-		# Add undo and go
-		SEAnimUndoQueue.append(BoneUndo)
 	# End progress
 	cmds.progressBar(gMainProgressBar, edit=True, endProgress=True)
 	# Import notetracks (if any)
@@ -682,7 +664,7 @@ def LoadSEAnimBuildCurve(filepath=""):
 				# Parent it
 				mel.eval("parent " + cleanNote + " SENotes")
 			# Now grab the curve, and add the key
-			NoteCurve = GetAnimCurve(DagPathFromJoint(cleanNote).transform(), "translateX", 1)
+			NoteCurve = GetAnimCurve(DagPathFromJoint(cleanNote, False).transform(), "translateX", 1)
 			# Add the key
 			NoteCurve.addKeyframe(OpenMaya.MTime(note.frame), 0, 2, 2)
 		except:

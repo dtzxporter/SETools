@@ -1,4 +1,4 @@
-# SETools - Maya (v2.0.3)
+# SETools - Maya (v2.1)
 
 A .SE format import / export plugin for Maya (2012+)
 
@@ -19,7 +19,7 @@ Next, you must open the plugin manager using `Window->Settings/Preferences->Plug
 
 ## Updating:
 
-Replace the files in the correct directory from the installation section with the new ones AND delete all of the `.pyc` files. Go to "SE Tools->Reload" Plugin to finish. If an error occures, you must simply reload Maya.
+Replace the files in the correct directory from the installation section with the new ones AND delete all of the `.pyc` files. Go to "SE Tools->Reload" Plugin to finish. If an error occurs, you must simply reload Maya.
 
 ## Usage:
 
@@ -32,6 +32,11 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.1:*
+- Added support for merging (combining) animations on import via `SE Tools->Import and Merge`
+- Better support for undoing the scene, smoother, faster
+- Better error handling
 
 *v2.0.3:*
 - Bug fix for new scenes and old animation caches
