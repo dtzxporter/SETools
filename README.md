@@ -1,4 +1,4 @@
-# SETools - Maya (v2.1)
+# SETools - Maya (v2.1.1)
 
 A .SE format import / export plugin for Maya (2012+)
 
@@ -32,6 +32,10 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.1.1:*
+- Fixed an issue with Maya 2012 animation resetting
+- Fixed plugin changing angle units
 
 *v2.1:*
 - Added support for merging (combining) animations on import via `SE Tools->Import and Merge`

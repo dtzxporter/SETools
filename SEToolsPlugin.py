@@ -17,11 +17,12 @@ MENU_DATA = {'menu' : ["SEAToolsPluginMenu", "SE Tools", None, None, None]}
 GUN_BASE_TAGS = ["j_gun", "j_gun1", "tag_weapon", "tag_weapon1"]
 VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_left"]
 
-MAX_FRAMELEN = 9999999
+# Fuck maya 2012 (Max frame length is 999999)
+MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -672,6 +673,8 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			pass
 	# Reset time
 	cmds.currentTime(start_frame)
+	# Go back to degrees
+	mel.eval("currentUnit -angle \"deg\"")
 	# End
 	print("The animation has been loaded")
 
