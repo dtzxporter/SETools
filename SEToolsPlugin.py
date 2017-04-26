@@ -22,7 +22,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -568,8 +568,10 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			print("SEAnim -> WARN: Failed to get MFnIkJoint for: " + nsTag)
 			# Go to next anim
 			continue
-		# Set to rest rotation
-		BoneJoint.setOrientation(OpenMaya.MQuaternion(0, 0, 0, 1))
+		# Reset rotation values
+		if len(tag.rotKeys) > 0:
+			# Set to rest rotation (if we have rotation keys!)
+			BoneJoint.setOrientation(OpenMaya.MQuaternion(0, 0, 0, 1))
 		# Grab rest transform
 		BoneRestTransform = BoneJoint.getTranslation(OpenMaya.MSpace.kTransform)
 		# Loop through translation keys (if we have any)
