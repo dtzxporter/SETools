@@ -1,4 +1,4 @@
-# SETools - Maya (v2.1.4)
+# SETools - Maya (v2.1.5)
 
 A .SE format import / export plugin for Maya (2014+)
 - 2012 may work but is __unsupported__
@@ -33,6 +33,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.1.5:*
+- Attempts to reset the rotations when binding gun to hands
 
 *v2.1.4:*
 - Catched an error that would happen when importing several animations
