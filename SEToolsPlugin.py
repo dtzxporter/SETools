@@ -22,7 +22,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.4)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.5)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -159,6 +159,9 @@ def WeaponBinder():
 			cmds.setAttr(GUN_BASE_TAGS[x] + ".t", 0, 0, 0)
 			cmds.setAttr(GUN_BASE_TAGS[x] + ".jo", 0, 0, 0)
 			cmds.setAttr(GUN_BASE_TAGS[x] + ".rotate", 0, 0, 0)
+			# Reset the rotation of the parent tag
+			cmds.setAttr(VIEW_HAND_TAGS[x] + ".jo", 0, 0, 0)
+			cmds.setAttr(VIEW_HAND_TAGS[x] + ".rotate", 0, 0, 0)
 			# Remove
 			cmds.select(clear = True)
 		except:
