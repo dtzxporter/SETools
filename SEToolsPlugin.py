@@ -22,7 +22,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.4)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -117,56 +117,24 @@ def CreateMenu():
 	
 	# Purge old one
 	DeleteMenu()
-	
-	# Recreate the base
-	menu = cmds.menu(MENU_DATA['menu'][0], label=MENU_DATA["menu"][1], tearOff=True)
-	
-	# Import tools
+
+	# Make new menu
+	menu = cmds.menu(MENU_DATA['menu'][0], label=MENU_DATA["menu"][1], tearOff=True)	# Recreate the base
 	cmds.menuItem(label="Import <- SEAnim", command=lambda x:ImportSEAnim())
-
-	# Import and Merge
 	cmds.menuItem(label="Import and Merge <- SEAnim", command=lambda x:ImportMergeSEAnim())
-
-	# Divide
 	cmds.menuItem(divider=True)
-
-	# Export tools
 	cmds.menuItem(label="Export -> SEAnim", command=lambda x:ExportEntireSceneAnim())
-
-	# Divide
 	cmds.menuItem(divider=True)
-
-	# Clean namespaces
 	cmds.menuItem(label="Clean Namespaces", command=lambda x:NamespaceClean())
-
-	# Place notetrack
 	cmds.menuItem(label="Place Notetrack", command=lambda x:PlaceNote())
-
-	# Divide
 	cmds.menuItem(divider=True)
-
-	# Make game specific submenu
-	game_menu = cmds.menuItem(label="Game Specific Tools", subMenu=True)
-
-	# Call of duty menu
+	game_menu = cmds.menuItem(label="Game Specific Tools", subMenu=True)	# Make game specific submenu
 	cmds.menuItem(label="Call of Duty", subMenu=True)
-
-	# Bind weapon to hand
 	cmds.menuItem(label="Attach Weapon to Rig", command=lambda x:WeaponBinder())
-
-	# Close out menu (Call of Duty)
-	cmds.setParent(game_menu, menu=True)
-
-	# Close out menu (Game tools)
-	cmds.setParent(menu, menu=True)
-
-	# Divide
+	cmds.setParent(game_menu, menu=True) 	# Close out menu (Call of Duty)
+	cmds.setParent(menu, menu=True) 		# Close out menu (Game tools)
 	cmds.menuItem(divider=True)
-
-	# Debug stuff
 	cmds.menuItem(label="Reload Plugin", command=lambda x:ReloadMayaPlugin())
-
-	# About
 	cmds.menuItem(label="About", command=lambda x:AboutWindow())
 
 # Reloads a maya plugin
@@ -628,10 +596,10 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			key = tag.rotKeys[0]
 			# Set initial pose for the bone
 			QuatData = OpenMaya.MQuaternion(key.data[0], key.data[1], key.data[2], key.data[3])
-			# Set rotate values
-			cmds.setAttr(nsTag + ".r", QuatData.x, QuatData.y, QuatData.z)
 			# Convert to euler
 			EularData = QuatData.asEulerRotation()
+			# Set rotate values
+			cmds.setAttr(nsTag + ".r", math.degrees(EularData.x), math.degrees(EularData.y), math.degrees(EularData.z))
 			# Loop through keys
 			for key in tag.rotKeys:
 				# Add rotation keyframe (convert to eular)
@@ -643,7 +611,7 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 				BoneCurveY.addKeyframe(OpenMaya.MTime(key.frame), EularData.y, 2, 2)
 				BoneCurveZ.addKeyframe(OpenMaya.MTime(key.frame), EularData.z, 2, 2)
 			# Set rotation interpolation (Why the fuck does the api not expose this...)
-			mel.eval("rotationInterpolation -c quaternion \"" + nsTag + ".rotateX\" \"" + nsTag + ".rotateY\" \"" + nsTag + ".rotateZ\"")
+			mel.eval("catchQuiet(`rotationInterpolation -c quaternion \"" + nsTag + ".rotateX\" \"" + nsTag + ".rotateY\" \"" + nsTag + ".rotateZ\"`);")
 	# End progress
 	cmds.progressBar(gMainProgressBar, edit=True, endProgress=True)
 	# Import notetracks (if any)

@@ -1,6 +1,7 @@
-# SETools - Maya (v2.1.2)
+# SETools - Maya (v2.1.4)
 
-A .SE format import / export plugin for Maya (2012+)
+A .SE format import / export plugin for Maya (2014+)
+- 2012 may work but is __unsupported__
 
 *.SE formats are open-sourced formats optimized for next-generation modeling and animation. They are free to be used in any project, game, software, etc with the hopes that people will adapt the standard unlike other formats available.*
 
@@ -32,6 +33,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.1.4:*
+- Catched an error that would happen when importing several animations
 
 *v2.1.2:*
 - Fixed a slight rotation issue
