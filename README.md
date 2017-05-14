@@ -1,7 +1,6 @@
-# SETools - Maya (v2.1.5)
+# SETools - Maya (v2.2)
 
-A .SE format import / export plugin for Maya (2014+)
-- 2012 may work but is __unsupported__
+A .SE format import / export plugin for Maya (2012+)
 
 *.SE formats are open-sourced formats optimized for next-generation modeling and animation. They are free to be used in any project, game, software, etc with the hopes that people will adapt the standard unlike other formats available.*
 
@@ -33,6 +32,11 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.2:*
+- Fixed an issue which messed up saving animations.
+- Made SEAnimUndo persist between saving, allowing for importing again when re-opening a Maya scene.
+- General curve fixes
 
 *v2.1.5:*
 - Attempts to reset the rotations when binding gun to hands

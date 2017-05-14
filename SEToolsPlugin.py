@@ -22,7 +22,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.1.5)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -120,6 +120,7 @@ def CreateMenu():
 
 	# Make new menu
 	menu = cmds.menu(MENU_DATA['menu'][0], label=MENU_DATA["menu"][1], tearOff=True)	# Recreate the base
+	# Add children
 	cmds.menuItem(label="Import <- SEAnim", command=lambda x:ImportSEAnim())
 	cmds.menuItem(label="Import and Merge <- SEAnim", command=lambda x:ImportMergeSEAnim())
 	cmds.menuItem(divider=True)
@@ -432,9 +433,9 @@ def DagPathFromJoint(name, needsRest=True):
 			ResetScale = cmds.getAttr(name + ".scale")[0]
 			ResetRotation = cmds.getAttr(name + ".jo")[0]
 			# Make the attributes
-			cmds.addAttr(name, longName="seanimUndoT", dataType="double3")
-			cmds.addAttr(name, longName="seanimUndoS", dataType="double3")
-			cmds.addAttr(name, longName="seanimUndoR", dataType="double3")
+			cmds.addAttr(name, longName="seanimUndoT", dataType="double3", storable=True)
+			cmds.addAttr(name, longName="seanimUndoS", dataType="double3", storable=True)
+			cmds.addAttr(name, longName="seanimUndoR", dataType="double3", storable=True)
 			# Set them
 			cmds.setAttr(name + ".seanimUndoT", ResetTranslation[0], ResetTranslation[1], ResetTranslation[2], type="double3")
 			cmds.setAttr(name + ".seanimUndoS", ResetScale[0], ResetScale[1], ResetScale[2], type="double3")
@@ -460,7 +461,7 @@ def GetAnimCurve(joint, attr, curveType):
 	attrPlug.setLocked(False)
 	# Check if we must detatch or remove an existing one
 	if attrPlug.isConnected():
-		# Attach to it
+		# Attach to it (TODO reset this eventually, disconnect other shiz)
 		return OpenMayaAnim.MFnAnimCurve(attrPlug)
 	# Apply the curve to the bone
 	animCurve = OpenMayaAnim.MFnAnimCurve()
@@ -485,9 +486,8 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 	cmds.playbackOptions(maxTime=end_frame, aet=end_frame)
 	# Turn off autoKey
 	mel.eval("autoKeyframe -state off")
-	# Make sure scene is in CM / Radians measurment
+	# Make sure scene is in CM scale
 	mel.eval("currentUnit -linear \"cm\"")
-	mel.eval("currentUnit -angle \"rad\"")
 	# Reset scene if need be, todo, check anim type
 	if not mergeOverride:
 		# Reset it
@@ -592,9 +592,9 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 		# Loop through rotation keys (if we have any)
 		if len(tag.rotKeys) > 0:
 			# We got them, create the curves first
-			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "rotateX", 1)
-			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "rotateY", 1)
-			BoneCurveZ = GetAnimCurve(BoneDagPath.transform(), "rotateZ", 1)
+			BoneCurveX = GetAnimCurve(BoneDagPath.transform(), "rotateX", 0)
+			BoneCurveY = GetAnimCurve(BoneDagPath.transform(), "rotateY", 0)
+			BoneCurveZ = GetAnimCurve(BoneDagPath.transform(), "rotateZ", 0)
 			# Get key
 			key = tag.rotKeys[0]
 			# Set initial pose for the bone
@@ -646,8 +646,6 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			pass
 	# Reset time
 	cmds.currentTime(start_frame)
-	# Go back to degrees
-	mel.eval("currentUnit -angle \"deg\"")
 	# End
 	print("The animation has been loaded")
 
