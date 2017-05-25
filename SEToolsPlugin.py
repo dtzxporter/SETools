@@ -22,7 +22,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -128,6 +128,8 @@ def CreateMenu():
 	cmds.menuItem(divider=True)
 	cmds.menuItem(label="Clean Namespaces", command=lambda x:NamespaceClean())
 	cmds.menuItem(label="Place Notetrack", command=lambda x:PlaceNote())
+	cmds.menuItem(divider=True)
+	cmds.menuItem(label="Reset Scene", command=lambda x:ResetSceneAnim())
 	cmds.menuItem(divider=True)
 	game_menu = cmds.menuItem(label="Game Specific Tools", subMenu=True)	# Make game specific submenu
 	cmds.menuItem(label="Call of Duty", subMenu=True)

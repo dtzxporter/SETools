@@ -1,4 +1,4 @@
-# SETools - Maya (v2.2)
+# SETools - Maya (v2.2.1)
 
 A .SE format import / export plugin for Maya (2012+)
 
@@ -32,6 +32,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.2.1:*
+- Added a manual reset scene button (Importing a new anim will still reset the scene like normal)
 
 *v2.2:*
 - Fixed an issue which messed up saving animations.
