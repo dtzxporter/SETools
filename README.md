@@ -1,6 +1,7 @@
 # SETools - Maya (v2.2.1)
 
-A .SE format import / export plugin for Maya (2012+)
+A .SE format import / export plugin for Maya (2014+)
+(Maya 2012 works, however some animations have interpolation bugs due to an unfixed Maya bug)
 
 *.SE formats are open-sourced formats optimized for next-generation modeling and animation. They are free to be used in any project, game, software, etc with the hopes that people will adapt the standard unlike other formats available.*
 
