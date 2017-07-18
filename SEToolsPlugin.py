@@ -22,7 +22,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -496,8 +496,8 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 		ResetSceneAnim()
 	# Setup progress
 	gMainProgressBar = mel.eval('$tmp = $gMainProgressBar')
-	# Count of bones (used for progress)
-	maxCount = len(anim.bones)
+	# Count of bones (used for progress, clamped to at least 1)
+	maxCount = max(1, len(anim.bones))
 	# Create the bar
 	cmds.progressBar(gMainProgressBar, edit=True, beginProgress=True, isInterruptable=False, status='Loading SEAnim...', maxValue=maxCount)
 	# Loop through bones
