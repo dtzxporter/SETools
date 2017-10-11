@@ -1,4 +1,4 @@
-# SETools - Maya (v2.2.3)
+# SETools - Maya (v2.2.4)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.2.4:*
+- Workaround for notetrack names that share Maya reserved keywords
 
 *v2.2.3:*
 - Ensure that we have at least 1 frame when loading
