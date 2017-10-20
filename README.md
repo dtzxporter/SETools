@@ -1,4 +1,4 @@
-# SETools - Maya (v2.2.4)
+# SETools - Maya (v2.2.5)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,12 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.2.5:*
+- Support for SEAnimType.Additive
+- New utilities for selecting bones (All / Keyed)
+- Annotations for all commands
+- Updated 'Merge' command to it's proper name, 'Blend'
 
 *v2.2.4:*
 - Workaround for notetrack names that share Maya reserved keywords

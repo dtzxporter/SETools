@@ -17,12 +17,12 @@ MENU_DATA = {'menu' : ["SEAToolsPluginMenu", "SE Tools", None, None, None]}
 GUN_BASE_TAGS = ["j_gun", "j_gun1", "tag_weapon", "tag_weapon1"]
 VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_left"]
 
-# Fuck maya 2012 (Max frame length is 999999)
+# Fuck Maya 2012 (Max frame length is 999999)
 MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.4)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.5)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -121,23 +121,25 @@ def CreateMenu():
 	# Make new menu
 	menu = cmds.menu(MENU_DATA['menu'][0], label=MENU_DATA["menu"][1], tearOff=True)	# Recreate the base
 	# Add children
-	cmds.menuItem(label="Import <- SEAnim", command=lambda x:ImportSEAnim())
-	cmds.menuItem(label="Import and Merge <- SEAnim", command=lambda x:ImportMergeSEAnim())
+	cmds.menuItem(label="Import <- SEAnim", command=lambda x:ImportSEAnim(), annotation="Imports a SEAnim, resetting the scene first")
+	cmds.menuItem(label="Import and Blend <- SEAnim", command=lambda x:ImportMergeSEAnim(), annotation="Imports a SEAnim without resetting the scene (Blending the animations together)")
 	cmds.menuItem(divider=True)
-	cmds.menuItem(label="Export -> SEAnim", command=lambda x:ExportEntireSceneAnim())
+	cmds.menuItem(label="Export -> SEAnim", command=lambda x:ExportEntireSceneAnim(), annotation="Exports all joints, or all selected joints to a SEAnim file")
 	cmds.menuItem(divider=True)
-	cmds.menuItem(label="Clean Namespaces", command=lambda x:NamespaceClean())
-	cmds.menuItem(label="Place Notetrack", command=lambda x:PlaceNote())
+	cmds.menuItem(label="Clean Namespaces", command=lambda x:NamespaceClean(), annotation="Removes all namespaces from the scene")
+	cmds.menuItem(label="Place Notetrack", command=lambda x:PlaceNote(), annotation="Places a notetrack at the current scene time")
+	cmds.menuItem(label="Select All Joints", command=lambda x:SelectAllJoints(), annotation="Selects all joints")
+	cmds.menuItem(label="Select Keyed Joints", command=lambda x:SelectKeyframes(), annotation="Selects keyed joints, this feature does not work with conversion rigs")
 	cmds.menuItem(divider=True)
-	cmds.menuItem(label="Reset Scene", command=lambda x:ResetSceneAnim())
+	cmds.menuItem(label="Reset Scene", command=lambda x:ResetSceneAnim(), annotation="Manually reset the scene to bind position")
 	cmds.menuItem(divider=True)
 	game_menu = cmds.menuItem(label="Game Specific Tools", subMenu=True)	# Make game specific submenu
 	cmds.menuItem(label="Call of Duty", subMenu=True)
-	cmds.menuItem(label="Attach Weapon to Rig", command=lambda x:WeaponBinder())
+	cmds.menuItem(label="Attach Weapon to Rig", command=lambda x:WeaponBinder(), annotation="Attatches the weapon to the viewhands, does not work properly with conversion rigs")
 	cmds.setParent(game_menu, menu=True) 	# Close out menu (Call of Duty)
 	cmds.setParent(menu, menu=True) 		# Close out menu (Game tools)
 	cmds.menuItem(divider=True)
-	cmds.menuItem(label="Reload Plugin", command=lambda x:ReloadMayaPlugin())
+	cmds.menuItem(label="Reload Plugin", command=lambda x:ReloadMayaPlugin(), annotation="Attempts to reload the plugin")
 	cmds.menuItem(label="About", command=lambda x:AboutWindow())
 
 # Reloads a maya plugin
@@ -203,6 +205,40 @@ def PlaceNote():
 	cmds.setKeyframe(noteName, time = currentFrame)
 	# Log it
 	print("A new notetrack was created")
+
+# Selects all bones
+def SelectAllJoints():
+	# Clear current selection
+	cmds.select(clear=True)
+	# Get a list of bones
+	boneList = cmds.ls(type = 'joint')
+	# Iterate and select ones with frames on loc/rot/scale
+	for bone in boneList:
+		# Select it
+		cmds.select(bone, add=True)
+
+# Selects bones with keyframes
+def SelectKeyframes():
+	# Clear current selection
+	cmds.select(clear=True)
+	# Get a list of bones
+	boneList = cmds.ls(type = 'joint')
+	# Iterate and select ones with frames on loc/rot/scale
+	for bone in boneList:
+		# Check for loc
+		keysTranslate = cmds.keyframe(bone + ".translate", query=True, timeChange=True)
+		keysRotate = cmds.keyframe(bone + ".rotate", query=True, timeChange=True)
+		keysScale = cmds.keyframe(bone + ".scale", query=True, timeChange=True)
+		# Check for frames
+		if keysTranslate is not None:
+			if len(keysTranslate) >= 1:
+				cmds.select(bone, add=True)
+		if keysRotate is not None:
+			if len(keysRotate) >= 1:
+				cmds.select(bone, add=True)
+		if keysScale is not None:
+			if len(keysScale) >= 1:
+				cmds.select(bone, add=True)
 
 # Cleans namespaces
 def NamespaceClean():
@@ -278,26 +314,6 @@ def MayaMatrixToQuat(mmat):
 
 	# Return the value
 	return (qx, qy, qz, qw)
-
-# Reference values for a maya matrix
-"""
-m00 = mmat[0]
-m01 = mmat[4]
-m02 = mmat[8]
-m03 = mmat[12]
-m10 = mmat[1]
-m11 = mmat[5]
-m12 = mmat[9]
-m13 = mmat[13]
-m20 = mmat[2]
-m21 = mmat[6]
-m22 = mmat[10]
-m23 = mmat[14]
-m30 = mmat[3]
-m31 = mmat[7]
-m32 = mmat[11]
-m33 = mmat[15]
-"""
 
 def ExportEntireSceneAnim():
 	# Export everything that's selected, if none, export all
@@ -547,10 +563,11 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			print("SEAnim -> WARN: Failed to get MFnIkJoint for: " + nsTag)
 			# Go to next anim
 			continue
-		# Reset rotation values
-		if len(tag.rotKeys) > 0:
+		# Reset rotation values (If the animation is not additive)
+		if len(tag.rotKeys) > 0 and BoneAnimType != SEAnim.SEANIM_TYPE.SEANIM_TYPE_ADDITIVE:
 			# Set to rest rotation (if we have rotation keys!)
 			BoneJoint.setOrientation(OpenMaya.MQuaternion(0, 0, 0, 1))
+			print("reset " + nsTag)
 		# Grab rest transform
 		BoneRestTransform = BoneJoint.getTranslation(OpenMaya.MSpace.kTransform)
 		# Loop through translation keys (if we have any)
@@ -666,7 +683,7 @@ class SEAnimFileManager(OpenMayaMPx.MPxFileTranslator):
 	def haveReadMethod(self):
 		return True
 	def identifyFile(self, file, buf, size):
-		return OpenMayaMPx.MPxFileTranslator.kIsMyFileType
+		return OpenMayaMPx.MPxFileTranslator.kCouldBeMyFileType
 	def filter(self):
 		return "*.seanim"
 	def defaultExtension(self):
