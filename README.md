@@ -1,4 +1,4 @@
-# SETools - Maya (v2.2.5)
+# SETools - Maya (v2.2.6)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,10 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.2.6:*
+- Rewrite of CleanNote names for better support
+- Update to newest seanim.py (You MUST update this file!)
 
 *v2.2.5:*
 - Support for SEAnimType.Additive

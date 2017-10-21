@@ -11,8 +11,11 @@ import maya.OpenMayaAnim as OpenMayaAnim
 import maya.OpenMayaMPx as OpenMayaMPx
 import struct
 import seanim as SEAnim
+import re
 
 MENU_DATA = {'menu' : ["SEAToolsPluginMenu", "SE Tools", None, None, None]}
+
+INVALID_CHARS = r"[\W]"
 
 GUN_BASE_TAGS = ["j_gun", "j_gun1", "tag_weapon", "tag_weapon1"]
 VIEW_HAND_TAGS = ["tag_weapon", "tag_weapon1", "tag_weapon_right", "tag_weapon_left"]
@@ -22,7 +25,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.5)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.6)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -262,7 +265,7 @@ def NamespaceClean():
 
 def CleanNote(note):
 	# Clean the note string
-	RemovedLiterals = note.replace(" ", "_").replace("#", "_").replace("\"", "_").replace("'", "_").replace("=", "_").replace("/", "_")
+	RemovedLiterals = re.sub(INVALID_CHARS, "_", note)
 	# Check for Maya reserved keywords, if matches, append _ beforehand
 	if (RemovedLiterals == "switch" or RemovedLiterals == "for" or RemovedLiterals == "while"):
 		# Found bad keyword
@@ -567,7 +570,6 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 		if len(tag.rotKeys) > 0 and BoneAnimType != SEAnim.SEANIM_TYPE.SEANIM_TYPE_ADDITIVE:
 			# Set to rest rotation (if we have rotation keys!)
 			BoneJoint.setOrientation(OpenMaya.MQuaternion(0, 0, 0, 1))
-			print("reset " + nsTag)
 		# Grab rest transform
 		BoneRestTransform = BoneJoint.getTranslation(OpenMaya.MSpace.kTransform)
 		# Loop through translation keys (if we have any)

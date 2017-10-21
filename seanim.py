@@ -209,7 +209,7 @@ class Bone(object):
 
 	def load(self, file):
 		bytes = b''
-		for i in range(64):
+		while True:
 			b = file.read(1)
 			if b == b'\x00':
 				self.name = bytes.decode("utf-8")
@@ -312,7 +312,7 @@ class Note(object):
 		self.frame = data[0]
 
 		bytes = b''
-		for i in range(64):
+		while True:
 			b = file.read(1)
 			if b == b'\x00':
 				self.name = bytes.decode("utf-8")
