@@ -25,7 +25,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.2.6)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.3)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -135,6 +135,7 @@ def CreateMenu():
 	cmds.menuItem(label="Select Keyed Joints", command=lambda x:SelectKeyframes(), annotation="Selects keyed joints, this feature does not work with conversion rigs")
 	cmds.menuItem(divider=True)
 	cmds.menuItem(label="Reset Scene", command=lambda x:ResetSceneAnim(), annotation="Manually reset the scene to bind position")
+	cmds.menuItem(label="Clear Curves", command=lambda x:PurgeAllKeyframes(), annotation="Manually delete all cached keyframe curves in the scene")
 	cmds.menuItem(divider=True)
 	game_menu = cmds.menuItem(label="Game Specific Tools", subMenu=True)	# Make game specific submenu
 	cmds.menuItem(label="Call of Duty", subMenu=True)
@@ -421,14 +422,46 @@ def ExportEntireSceneAnim():
 	# Done
 	print("The SEAnim was exported")
 
+# Purge all existing keyframes
+def PurgeAllKeyframes():
+	# Grab existing curves
+	ExistingFrames = cmds.ls(type="animCurveTA") + cmds.ls(type="animCurveTL")
+	# Iterate and remove
+	for KeyCurve in ExistingFrames:
+		# Delete it
+		cmds.delete(KeyCurve)
+
+# Resets a bones keyframes
+def ResetBoneKeyframes(joint):
+	# Get the plug
+	attrPlugTX = OpenMaya.MFnDependencyNode(joint).findPlug("translateX", False)
+	attrPlugTY = OpenMaya.MFnDependencyNode(joint).findPlug("translateY", False)
+	attrPlugTZ = OpenMaya.MFnDependencyNode(joint).findPlug("translateZ", False)
+	attrPlugRX = OpenMaya.MFnDependencyNode(joint).findPlug("rotateX", False)
+	attrPlugRY = OpenMaya.MFnDependencyNode(joint).findPlug("rotateY", False)
+	attrPlugRZ = OpenMaya.MFnDependencyNode(joint).findPlug("rotateZ", False)
+	attrPlugSX = OpenMaya.MFnDependencyNode(joint).findPlug("scaleX", False)
+	attrPlugSY = OpenMaya.MFnDependencyNode(joint).findPlug("scaleY", False)
+	attrPlugSZ = OpenMaya.MFnDependencyNode(joint).findPlug("scaleZ", False)
+	# Disconnect if required
+	DisconnectPath(attrPlugTX)
+	DisconnectPath(attrPlugTY)
+	DisconnectPath(attrPlugTZ)
+	DisconnectPath(attrPlugRX)
+	DisconnectPath(attrPlugRY)
+	DisconnectPath(attrPlugRZ)
+	DisconnectPath(attrPlugSX)
+	DisconnectPath(attrPlugSY)
+	DisconnectPath(attrPlugSZ)
+
 # Loop through and reset scene bones
 def ResetSceneAnim():
 	# Loop through them all
 	SceneJoints = cmds.ls(type="joint")
 	# Loop
 	for name in SceneJoints:
-		# Purge keys
-		cmds.cutKey(name, time=(0, MAX_FRAMELEN), option="keys")
+		# Disconnect if required
+		ResetBoneKeyframes(DagPathFromJoint(name, False).transform())
 		# Check for undo
 		if (cmds.objExists(name + ".seanimUndoT")):
 			# Reset to it
@@ -478,6 +511,21 @@ def DagPathFromJoint(name, needsRest=True):
 	# Return
 	return dResult
 
+# Disconnects a MDagPath from it's input keyframes
+def DisconnectPath(plugSource):
+	# Check if we must detatch or remove an existing one
+	attrInputs = OpenMaya.MPlugArray()
+	# Fetch connections
+	plugSource.connectedTo(attrInputs, True, False)
+	# If we have any, prepare to remove
+	if attrInputs.length() >= 1:
+		# We need to remove the existing connection first
+		depMod = OpenMaya.MDGModifier()
+		# Disconnect
+		depMod.disconnect(attrInputs[0], plugSource)
+		# Finalize
+		depMod.doIt()
+
 # Sets an anim curve to a bone, returns resulting curve
 def GetAnimCurve(joint, attr, curveType):
 	# Get the plug
@@ -486,10 +534,8 @@ def GetAnimCurve(joint, attr, curveType):
 	attrPlug.setKeyable(True)
 	# Make it unlocked
 	attrPlug.setLocked(False)
-	# Check if we must detatch or remove an existing one
-	if attrPlug.isConnected():
-		# Attach to it (TODO reset this eventually, disconnect other shiz)
-		return OpenMayaAnim.MFnAnimCurve(attrPlug)
+	# Clean up if we have any
+	DisconnectPath(attrPlug)
 	# Apply the curve to the bone
 	animCurve = OpenMayaAnim.MFnAnimCurve()
 	# Attach it
@@ -691,7 +737,7 @@ class SEAnimFileManager(OpenMayaMPx.MPxFileTranslator):
 	def defaultExtension(self):
 		return "seanim"
 	def writer(self, fileObject, optionString, accessMode):
-		print("TODO: Exporting")
+		print("TODO: Hook export func")
 	def reader(self, fileObject, optionString, accessMode):
 		fileName = fileObject.fullName()
 		LoadSEAnimBuildCurve(fileName)

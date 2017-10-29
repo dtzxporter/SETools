@@ -1,4 +1,4 @@
-# SETools - Maya (v2.2.6)
+# SETools - Maya (v2.3)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,11 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.3:*
+- Support for keyframe cache, which won't fully delete keyframes
+- To clear cached keyframes use 'SE Tools->Clear Curves'
+- This allows for support for copying keyframes and pasting them later
 
 *v2.2.6:*
 - Rewrite of CleanNote names for better support
