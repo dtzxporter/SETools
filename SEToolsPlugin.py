@@ -25,7 +25,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.3.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.3.2)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -587,8 +587,15 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			if cmds.objExists(nsTag + ".t") == False:
 				# Set to new name
 				nsTag = "*:" + nsTag
-				# Check once more
-				if cmds.objExists(nsTag + ".t") == False:
+				# Check, but get count
+				countWithNs = len(cmds.ls(nsTag + ".t"))
+				# Check
+				if countWithNs == 0:
+					# Go
+					continue
+				elif countWithNs > 1:
+					# Log error
+					print("SEAnim -> Joint \"" + tag.name.strip() + "\" was found multiple times (Unable to animate)")
 					# Go
 					continue
 		else:
@@ -606,15 +613,17 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			BoneDagPath = DagPathFromJoint(nsTag)
 		except:
 			# Log
-			print("SEAnim -> WARN: Failed to get MDagPath for: " + nsTag)
+			print("SEAnim -> Warn: Failed to get MDagPath for: " + nsTag)
+			# Go to next bone
+			continue
 		# Make a joint
 		try:
 			# Make joint
 			BoneJoint = OpenMayaAnim.MFnIkJoint(BoneDagPath)
 		except:
 			# Log
-			print("SEAnim -> WARN: Failed to get MFnIkJoint for: " + nsTag)
-			# Go to next anim
+			print("SEAnim -> Warn: Failed to get MFnIkJoint for: " + nsTag)
+			# Go to next bone
 			continue
 		# Reset rotation values (If the animation is not additive)
 		if len(tag.rotKeys) > 0 and BoneAnimType != SEAnim.SEANIM_TYPE.SEANIM_TYPE_ADDITIVE:
