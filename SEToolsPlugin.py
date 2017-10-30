@@ -25,7 +25,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.3)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.3.1)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -519,12 +519,16 @@ def DisconnectPath(plugSource):
 	plugSource.connectedTo(attrInputs, True, False)
 	# If we have any, prepare to remove
 	if attrInputs.length() >= 1:
-		# We need to remove the existing connection first
-		depMod = OpenMaya.MDGModifier()
-		# Disconnect
-		depMod.disconnect(attrInputs[0], plugSource)
-		# Finalize
-		depMod.doIt()
+		# Check if it's an animation curve
+		attachedNode = attrInputs[0]
+		# Make sure we're a curve (To prevent detatching rigs)
+		if (attachedNode.node().apiTypeStr().startswith('kAnimCurve')):
+			# We need to remove the existing connection first
+			depMod = OpenMaya.MDGModifier()
+			# Disconnect
+			depMod.disconnect(attachedNode, plugSource)
+			# Finalize
+			depMod.doIt()
 
 # Sets an anim curve to a bone, returns resulting curve
 def GetAnimCurve(joint, attr, curveType):

@@ -1,4 +1,4 @@
-# SETools - Maya (v2.3)
+# SETools - Maya (v2.3.1)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.3.1:*
+- Fixed support for conversion rigs
 
 *v2.3:*
 - Support for keyframe cache, which won't fully delete keyframes
