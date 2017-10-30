@@ -1,4 +1,4 @@
-# SETools - Maya (v2.3.1)
+# SETools - Maya (v2.3.2)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,10 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.3.2:*
+- Ignore bones with the same name (When SETools can't decide which bone to animate)
+- Ignored bone is printed to the console (No crash)
 
 *v2.3.1:*
 - Fixed support for conversion rigs
