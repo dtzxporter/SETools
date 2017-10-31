@@ -1,4 +1,4 @@
-# SETools - Maya (v2.3.2)
+# SETools - Maya (v2.3.3)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v2.3.3:*
+- Updated seanim.py to latest version (v1.1.0) which fixes animations with exactly 255 frames.
 
 *v2.3.2:*
 - Ignore bones with the same name (When SETools can't decide which bone to animate)
