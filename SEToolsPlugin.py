@@ -25,7 +25,7 @@ MAX_FRAMELEN = 999999
 
 # About info
 def AboutWindow():
-	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.3.3)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
+	result = cmds.confirmDialog(message="---  SE Tools plugin (v2.3.4)  ---\n\nDeveloped by DTZxPorter", button=['OK'], defaultButton='OK', title="About SE Tools")
 
 # A list (in order of priority) of bone names to automatically search for when determining which bone to use as the root for delta anims
 DeltaRootBones = ["tag_origin"]
@@ -716,7 +716,7 @@ def LoadSEAnimBuildCurve(filepath="", mergeOverride=False):
 			# Clean the note name
 			cleanNote = CleanNote(note.name)
 			# Check if it exists
-			if not cmds.objExists(cleanNote):
+			if cleanNote != "" and not cmds.objExists(cleanNote):
 				# We must make it
 				NewNote = cmds.spaceLocator()
 				# Rename
