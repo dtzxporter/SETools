@@ -1,4 +1,4 @@
-# SETools - Maya (v2.3.4)
+# SETools - Maya (v3.0.0)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -26,14 +26,25 @@ Replace the files in the correct directory from the installation section with th
 ## Usage:
 
 *Animations:*
-- To import an anim use "SE Tools -> Import SEAnim" or drag and drop a file, this will import an anim onto an already binded scene.
-- To export, either select the bones to use (or select none for all), set the end scene time to the animation end time, then use "SE Tools -> Export SEAnim" this will export the animation to a .seanim file.
-- To place a notetrack use "SE Tools -> Place Notetrack" this will place a notetrack named "new_notetrack" at the current scene time, you can rename it using the object browser on the left.
+- To import an anim use "SE Tools -> Import SEAnim File" or drag and drop a file, this will import an anim onto an already binded scene.
+- To export, either select the bones to use (or select none for all), set the end scene time to the animation end time, then use "SE Tools -> Export SEAnim File" this will export the animation to a .seanim file.
+- To place a notetrack use "SE Tools -> New Notetrack" this will place a notetrack named "new_notetrack" at the current scene time, you can rename it using the object browser on the left.
 
 *Models:*
 - Coming soon
 
 ## Changelog:
+
+*v3.0.0:*
+- Complete plugin rewrite
+- Faster import and export
+- New import animation at current scene time
+- Preparation for SEModel import and export
+- Bugfixes and performance improvements
+- Removed 'Game Specific Tools' (Call of Duty weapon binder is now in CodMayaTools!)
+- All new debug information in log for easy debugging of import issues and conflicts
+- Save and restores scene settings on import
+- Fixed SETools sometimes trying to load other file formats
 
 *v2.3.4:*
 - Ignore notetracks with no name
