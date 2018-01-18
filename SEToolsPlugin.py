@@ -30,7 +30,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.0",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.1",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -343,15 +343,18 @@ def __scene_obtainjoint__(joint_name, reset_rest=True):
         rest_scale = cmds.getAttr(joint_name + ".seanimRestS")[0]
         rest_rotation = cmds.getAttr(joint_name + ".seanimRestR")[0]
 
-    # Check whether or not to reset to rest position
+    # Check whether or not to reset to rest position (Only reset if we have rest data available)
     if reset_rest:
-        cmds.setAttr(
-            joint_name + ".t", rest_translation[0], rest_translation[1], rest_translation[2])
-        cmds.setAttr(joint_name + ".scale",
-                     rest_scale[0], rest_scale[1], rest_scale[2])
-        cmds.setAttr(joint_name + ".r", 0, 0, 0)
-        cmds.setAttr(joint_name + ".jo",
-                     rest_rotation[0], rest_rotation[1], rest_rotation[2])
+        try:
+            cmds.setAttr(
+                joint_name + ".t", rest_translation[0], rest_translation[1], rest_translation[2])
+            cmds.setAttr(joint_name + ".scale",
+                         rest_scale[0], rest_scale[1], rest_scale[2])
+            cmds.setAttr(joint_name + ".r", 0, 0, 0)
+            cmds.setAttr(joint_name + ".jo",
+                         rest_rotation[0], rest_rotation[1], rest_rotation[2])
+        except RuntimeError:
+            pass
 
     # Return the joint, and rest positions
     return (result_path, result_joint, rest_translation, rest_scale, rest_rotation)
