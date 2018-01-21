@@ -1,4 +1,4 @@
-# SETools - Maya (v3.0.1)
+# SETools - Maya (v3.0.2)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v3.0.2:*
+- Fixed possible crash when animating a bone
 
 *v3.0.1:*
 - Tweaked reset code to only reset joints which have saved reset data

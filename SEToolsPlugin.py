@@ -30,7 +30,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.1",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.2",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -610,9 +610,14 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
             bone_anim_type = anim.header.animType
 
         # Attempt to obtain the joint in the scene
-        (joint_path, joint_object, rest_translation,
-         rest_scale, rest_rotation) = __scene_obtainjoint__(
-             joint_name, not blend_anim)
+        try:
+            (joint_path, joint_object, rest_translation,
+             rest_scale, rest_rotation) = __scene_obtainjoint__(
+                 joint_name, not blend_anim)
+        except RuntimeError:
+            __log_info__("SEAnim::ObtainJoint(%s) failed to obtain joint skipping..." %
+                         joint_name)
+            continue
 
         if bone.posKeys:
             curve_pos_x = __scene_getcurve__(joint_path.transform(
