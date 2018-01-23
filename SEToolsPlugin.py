@@ -7,6 +7,7 @@ import os
 import os.path
 import re
 import math
+import json
 import maya.mel as mel
 import maya.cmds as cmds
 import maya.OpenMaya as OpenMaya
@@ -30,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.2",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.4",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -106,8 +107,8 @@ def __create_menu__():
     cmds.menuItem(label="Export SEAnim File", command=lambda x: __export_seanim__(
     ), annotation="Exports a SEAnim file using either selected joints or all of them")
     cmds.menuItem(divider=True)
-    cmds.menuItem(label="New Notetrack", command=lambda x: __new_notetrack__(
-    ), annotation="Places a new notetrack at the current scene time")
+    cmds.menuItem(label="Edit Notetracks", command=lambda x: __edit_notetracks__(
+    ), annotation="Edit notetracks in the current scene")
 
     cmds.setParent(anim_menu, menu=True)
     cmds.setParent(menu, menu=True)
@@ -142,53 +143,152 @@ def __create_menu__():
     cmds.menuItem(label="About", command=lambda x: __about_window__())
 
 
-def __new_notetrack__():
-    """Place a new notetrack at the current scene time"""
-    note_index = 0
-    if not cmds.objExists("SENotes"):
-        cmds.rename(cmds.spaceLocator(), "SENotes")
+def __removesel_notetracks__():
+    """Remove selected notetracks"""
+    existing_notes = __get_notetracks__()
+    selected_items = cmds.textScrollList(
+        "SENotesNoteList", query=True, selectItem=True)
 
-    while cmds.objExists("new_notetrack" + str(note_index)):
-        note_index = note_index + 1
-
-    new_note = "new_notetrack" + str(note_index)
-    cmds.rename(cmds.spaceLocator(), new_note)
-
-    cmds.parent(new_note, "SENotes")
-    cmds.setKeyframe(new_note, time=cmds.currentTime(query=True))
-
-
-def __make_notetrack__(note_name, frame):
-    """Creates a notetrack at the given frame"""
-    if not cmds.objExists("SENotes"):
-        cmds.rename(cmds.spaceLocator(), "SENotes")
-
-    # Clean the string
-    note_name = __clean_notetrack__(note_name)
-
-    # If it doesn't exist, create and parent it
-    if not note_name or note_name == "":
-        __log_info__(
-            "SEAnim::MakeNotetrack(%s) skipping notetrack with invalid name..." % note_name)
+    if not selected_items:
         return
-    if cmds.objExists(note_name):
-        new_note = note_name
-    else:
-        new_note = cmds.rename(cmds.spaceLocator(), note_name)
-        cmds.parent(new_note, "SENotes")
 
-    # Fetch notetrack curve and add keyframe
-    note_path = OpenMaya.MDagPath()
-    note_list = OpenMaya.MSelectionList()
-    note_list.add(new_note)
-    note_list.getDagPath(0, note_path)
+    # Iterate, and remove if need be
+    for sel_text in selected_items:
+        note_name = sel_text[sel_text.find(" ") + 1:]
+        note_frame = int(sel_text[:sel_text.find(" ")].replace(
+            "[", "").replace("]", "").replace("\t", ""))
 
-    # Add keyframe
-    note_curve = __scene_getcurve__(
-        note_path.transform(), "translateX", OpenMayaAnim.MFnAnimCurve.kAnimCurveTL)
-    note_curve.addKeyframe(OpenMaya.MTime(
-        frame), 0, OpenMayaAnim.MFnAnimCurve.kTangentLinear,
-        OpenMayaAnim.MFnAnimCurve.kTangentLinear)
+        if note_name not in existing_notes:
+            continue
+        if note_frame not in existing_notes[note_name]:
+            continue
+
+        existing_notes[note_name].remove(note_frame)
+
+    # Remove from list
+    cmds.textScrollList("SENotesNoteList", edit=True,
+                        removeItem=selected_items)
+
+    # Save the value
+    cmds.setAttr("SENotes.Notetracks", json.dumps(
+        existing_notes), type="string")
+
+
+def __create_notetrack__():
+    """Create a new notetrack at the current scene time"""
+    current_frame = int(cmds.currentTime(query=True))
+
+    # Ask the user for a name
+    if cmds.promptDialog(title="SEAnim - Create Notetrack",
+                         message="Enter in the new notetrack name:\t\t  ") != "Confirm":
+        return
+    new_name = cmds.promptDialog(query=True, text=True)
+
+    # Add it with the add function
+    if __add_notetrack__(new_name, current_frame):
+        # Add to the list
+        cmds.textScrollList("SENotesNoteList", append=[
+            "[" + str(current_frame) + "\t] " + new_name], edit=True)
+
+
+def __edit_notetracks__():
+    """Shows the edit notetracks window"""
+    if cmds.control("SENotesEditor", exists=True):
+        cmds.deleteUI("SENotesEditor")
+
+    wnd = cmds.window("SENotesEditor", title="SEAnim - Edit Notetracks",
+                      width=400, height=325, retain=True, maximizeButton=False)
+    wnd_layout = cmds.formLayout("SENotesEditor_Form")
+
+    # Build list
+    notetracks = __get_notetracks__()
+    note_strings = []
+    for note in notetracks:
+        for frame in notetracks[note]:
+            note_strings.append("[" + str(frame) + "\t] " + note)
+
+    # Create required controls
+    notetrack_ctrl = cmds.text(
+        label="Frame:                   Notetrack:", annotation="Current scene notetracks")
+    notelist_ctrl = cmds.textScrollList(
+        "SENotesNoteList", append=note_strings, allowMultiSelection=True)
+    add_ctrl = cmds.button(label="Add Notetrack",
+                           command=lambda x: __create_notetrack__(),
+                           annotation="Add a notetrack at the current scene time")
+    remove_ctrl = cmds.button(label="Remove Selected",
+                              command=lambda x: __removesel_notetracks__())
+    clearall_ctrl = cmds.button(
+        label="Clear All", command=lambda x: __clear_notetracks__())
+
+    # Reflow the window control
+    cmds.formLayout(wnd_layout, edit=True,
+                    attachForm=[
+                        (notetrack_ctrl, 'top', 10),
+                        (notetrack_ctrl, 'left', 10),
+                        (notelist_ctrl, 'left', 10),
+                        (notelist_ctrl, 'right', 10),
+                        (add_ctrl, 'left', 10),
+                        (add_ctrl, 'bottom', 10),
+                        (remove_ctrl, 'bottom', 10),
+                        (clearall_ctrl, 'bottom', 10)
+                    ],
+                    attachControl=[
+                        (notelist_ctrl, 'top', 5, notetrack_ctrl),
+                        (notelist_ctrl, 'bottom', 5, add_ctrl),
+                        (remove_ctrl, 'left', 5, add_ctrl),
+                        (clearall_ctrl, 'left', 5, remove_ctrl)
+                    ])
+
+    cmds.showWindow(wnd)
+
+
+def __clear_notetracks__():
+    """Deletes all notetracks"""
+    if cmds.objExists("SENotes"):
+        cmds.delete("SENotes")
+
+    # Clear the edit list of items
+    notetracks = cmds.textScrollList(
+        "SENotesNoteList", query=True, allItems=True)
+    if notetracks:
+        for note in notetracks:
+            cmds.textScrollList("SENotesNoteList", edit=True, removeItem=note)
+
+
+def __get_notetracks__():
+    """Loads all the notetracks in the scene"""
+    if not cmds.objExists("SENotes"):
+        cmds.rename(cmds.spaceLocator(), "SENotes")
+
+    if not cmds.objExists("SENotes.Notetracks"):
+        cmds.addAttr("SENotes", longName="Notetracks",
+                     dataType="string", storable=True)
+        cmds.setAttr("SENotes.Notetracks", "{}", type="string")
+
+    # Load the existing notetracks buffer, then ensure we have this notetrack
+    return json.loads(cmds.getAttr("SENotes.Notetracks"))
+
+
+def __add_notetrack__(name, frame):
+    """Adds a notetrack to the scene"""
+    current_notetracks = __get_notetracks__()
+
+    # Ensure we have this notetrack
+    if name not in current_notetracks:
+        current_notetracks[name] = []
+
+    added_res = False
+
+    # Now, append the frame (If unique)
+    frame = int(frame)
+    if frame not in current_notetracks[name]:
+        current_notetracks[name].append(frame)
+        added_res = True
+
+    # Save the value
+    cmds.setAttr("SENotes.Notetracks", json.dumps(
+        current_notetracks), type="string")
+    return added_res
 
 
 def __select_joints__():
@@ -495,7 +595,7 @@ def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_sc
     # Resolve a list of notetracks to export
     note_list = None
     if cmds.objExists("SENotes"):
-        note_list = cmds.listRelatives("SENotes", type="transform")
+        note_list = __get_notetracks__()
 
     if not bone_list and not note_list:
         __log_info__(
@@ -544,15 +644,12 @@ def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_sc
     # Fetch notetracks, if any
     if note_list:
         for note in note_list:
-            note_keys = cmds.keyframe(
-                note + ".translateX", query=True, timeChange=True)
-            if note_keys:
-                for key_note in note_keys:
-                    # Make and add a new notetrack
-                    new_note = SEAnim.Note()
-                    new_note.name = note
-                    new_note.frame = key_note
-                    anim.notes.append(new_note)
+            for frame in note_list[note]:
+                # Make and add a new notetrack
+                new_note = SEAnim.Note()
+                new_note.name = note
+                new_note.frame = frame
+                anim.notes.append(new_note)
 
     # Reconfigure the scene to our liking
     cmds.currentUnit(linear=currentunit_state, angle=currentangle_state)
@@ -754,7 +851,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
 
     # Import notetracks
     for note in anim.notes:
-        __make_notetrack__(note.name, note.frame)
+        __add_notetrack__(note.name, note.frame)
 
     # Reconfigure the scene to our liking
     cmds.autoKeyframe(state=autokeyframe_state)

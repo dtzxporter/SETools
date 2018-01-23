@@ -1,4 +1,4 @@
-# SETools - Maya (v3.0.2)
+# SETools - Maya (v3.0.4)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -28,12 +28,16 @@ Replace the files in the correct directory from the installation section with th
 *Animations:*
 - To import an anim use "SE Tools -> Import SEAnim File" or drag and drop a file, this will import an anim onto an already binded scene.
 - To export, either select the bones to use (or select none for all), set the end scene time to the animation end time, then use "SE Tools -> Export SEAnim File" this will export the animation to a .seanim file.
-- To place a notetrack use "SE Tools -> New Notetrack" this will place a notetrack named "new_notetrack" at the current scene time, you can rename it using the object browser on the left.
+- To place a notetrack use "SE Tools -> Edit Notetracks" this will open a menu for editing notetracks and removing them.
 
 *Models:*
 - Coming soon
 
 ## Changelog:
+
+*v3.0.4:*
+- Completely new notetrack system, allows for complete, unmodified names
+- New notetrack edit interface
 
 *v3.0.2:*
 - Fixed possible crash when animating a bone
