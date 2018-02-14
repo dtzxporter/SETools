@@ -1,4 +1,4 @@
-# SETools - Maya (v3.0.4)
+# SETools - Maya (v3.0.5)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,9 @@ Replace the files in the correct directory from the installation section with th
 - Coming soon
 
 ## Changelog:
+
+*v3.0.5:*
+- Use specific identity quaternion to prevent issues with other APIs
 
 *v3.0.4:*
 - Completely new notetrack system, allows for complete, unmodified names

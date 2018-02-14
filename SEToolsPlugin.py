@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.4",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.5",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -799,7 +799,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
             ), "rotateZ", OpenMayaAnim.MFnAnimCurve.kAnimCurveTA)
 
             # Ensure joint orientation is 0
-            joint_object.setOrientation(OpenMaya.MQuaternion.identity)
+            joint_object.setOrientation(OpenMaya.MQuaternion(0, 0, 0, 1))
 
             # Resolve relative transform
             if bone_anim_type == SEAnim.SEANIM_TYPE.SEANIM_TYPE_ADDITIVE:
@@ -808,7 +808,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
                         rest_rotation[1]),
                     math.radians(rest_rotation[2])).asQuaternion()
             else:
-                rel_transform = OpenMaya.MQuaternion.identity
+                rel_transform = OpenMaya.MQuaternion(0, 0, 0, 1)
 
             # If we are animating the first frame, or static rotation,
             # explicitly set first transform
