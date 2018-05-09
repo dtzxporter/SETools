@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.5",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.6",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -618,7 +618,9 @@ def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_sc
             cmds.progressBar(main_progressbar, edit=True, step=1)
 
             new_bone = SEAnim.Bone()
-            new_bone.name = bone
+
+            # Remove namespaces, if any
+            new_bone.name = bone.split(":")[-1]
 
             # Fetch scene frames from the current range
             for frame in frame_range:
