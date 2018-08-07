@@ -35,7 +35,6 @@ SEANIM_PRESENCE_FLAGS = enum(
     SEANIM_PRESENCE_CUSTOM=1 << 7,  # The file contains a custom data block
 )
 
-
 SEANIM_PROPERTY_FLAGS = enum(
     SEANIM_PRECISION_HIGH=1 << 0)
 
@@ -548,7 +547,7 @@ class Anim(object):
         try:
             file = open(filepath, "wb")
         except IOError:
-            print("Could not open file for writing:\n %s" % path)
+            print("Could not open file for writing:\n %s" % filepath)
             return
 
         # Update the header flags, based on the presence of different keyframe

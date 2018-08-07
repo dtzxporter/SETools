@@ -5,7 +5,6 @@
 
 import os
 import os.path
-import re
 import math
 import json
 import maya.mel as mel
@@ -14,6 +13,7 @@ import maya.OpenMaya as OpenMaya
 import maya.OpenMayaAnim as OpenMayaAnim
 import maya.OpenMayaMPx as OpenMayaMPx
 import seanim as SEAnim
+import semodel as SEModel
 
 
 def __first__(first_iter, second_iter):
@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.0.6",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.0",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -117,7 +117,7 @@ def __create_menu__():
     model_menu = cmds.menuItem(label="Model", subMenu=True)
 
     cmds.menuItem(label="Import SEModel File",
-                  annotation="Imports a SEModel File (coming soon)", enable=False)
+                  annotation="Imports a SEModel File", command=lambda x: __import_semodel__())
 
     cmds.setParent(model_menu, menu=True)
     cmds.setParent(menu, menu=True)
@@ -320,14 +320,6 @@ def __purge_namespaces__():
                 pass
 
 
-def __clean_notetrack__(note_value):
-    """Removes invalid characters from a notetrack name"""
-    purge_reg = re.sub(r"[\W]", "_", note_value)
-    if purge_reg == "switch" or purge_reg == "for" or purge_reg == "while" or purge_reg == "if":
-        purge_reg = "_" + purge_reg
-    return purge_reg
-
-
 def __disconnect_curve__(plug_source):
     """Disconnects an animation curve from the plug"""
     input_sources = OpenMaya.MPlugArray()
@@ -495,6 +487,77 @@ def __scene_getcurve__(joint_transform, plug_name, curve_type):
     return anim_curve
 
 
+def __scene_newskin__(mesh_path, joints=[], max_influence=1):
+    """Creates a skin cluster for the mesh"""
+    skin_params = [x for x in joints]
+    skin_params.append(mesh_path)
+
+    # Create the skin cluster, maintaining the influence
+    try:
+        new_skin = cmds.skinCluster(
+            *skin_params, tsb=True, mi=max_influence, nw=False)
+    except RuntimeError:
+        __log_info__(
+            "SEModel::NewSkin(%s) could not create a new skinCluster, skipping..." % mesh_path)
+        return None
+
+    # Attach the controller, then return
+    select_list = OpenMaya.MSelectionList()
+    select_list.add(new_skin[0])
+
+    # Attempt to get the path to the first item in the list
+    result_cluster = OpenMaya.MObject()
+    select_list.getDependNode(0, result_cluster)
+
+    # Return it
+    return OpenMayaAnim.MFnSkinCluster(result_cluster)
+
+
+def __scene_bindmesh__(mesh_skin, weight_data):
+    """Applies smooth skin bindings"""
+    joint_indicies = {}
+
+    # Build a list of API specific joint ids
+    _tmp_array = OpenMaya.MDagPathArray()
+    mesh_skin.influenceObjects(_tmp_array)
+    # Iterate and assign indicies for names
+    for idx in xrange(_tmp_array.length()):
+        joint_indicies[str(_tmp_array[idx].fullPathName())
+                       ] = mesh_skin.indexForInfluenceObject(_tmp_array[idx])
+
+    # Find the weights list
+    weight_list_plug = mesh_skin.findPlug("weightList")
+    weight_list_attr = weight_list_plug.attribute()
+    weight_plug = mesh_skin.findPlug("weights")
+
+    # Base format payload
+    cluster_attr = str(mesh_skin.name()) + ".weightList[%d]"
+    _tmp_index = OpenMaya.MIntArray()
+
+    # Iterate and apply weights
+    for vertex, weights in weight_data:
+        # Query new indicies
+        weight_plug.selectAncestorLogicalIndex(vertex, weight_list_attr)
+        weight_plug.getExistingArrayAttributeIndices(_tmp_index)
+
+        # Build final string
+        weight_payload = cluster_attr % vertex + ".weights[%d]"
+
+        # Remove existing data
+        for idx in xrange(_tmp_index.length()):
+            cmds.removeMultiInstance(weight_payload % _tmp_index[idx])
+
+        # Iterate over weights per bone
+        for joint, weight_val in weights:
+            cmds.setAttr(weight_payload % joint_indicies[joint], weight_val)
+
+
+def __build_image_path__(asset_path, image_path):
+    """Builds the full image path"""
+    root_path = os.path.dirname(asset_path)
+    return os.path.join(root_path, image_path)
+
+
 def __math_matrixtoquat__(maya_matrix):
     """Converts a Maya matrix array to a quaternion"""
     quat_x, quat_y, quat_z, quat_w = (0, 0, 0, 1)
@@ -570,6 +633,14 @@ def __export_seanim__():
         "SEAnim Files (*.seanim)", "Export SEAnim")
     if export_file:
         __save_seanim__(export_file)
+
+
+def __import_semodel__():
+    """Asks for a file to import"""
+    import_file = __importfile_dialog__(
+        "SEModel Files (*.semodel)", "Import SEModel")
+    if import_file:
+        __load_semodel__(import_file)
 
 
 def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_scales=True):
@@ -662,6 +733,224 @@ def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_sc
         "SEAnim::Export(%s) the animation was saved successfully" % os.path.basename(file_path))
 
 
+def __load_semodel__(file_path=""):
+    """Imports a SEModel file to the scene"""
+    model = SEModel.Model(file_path)
+
+    # We need to configure the scene, save current state and change back later
+    autokeyframe_state = cmds.autoKeyframe(query=True)
+    currentunit_state = cmds.currentUnit(query=True, linear=True)
+    currentangle_state = cmds.currentUnit(query=True, angle=True)
+    cmds.autoKeyframe(state=False)
+    cmds.currentUnit(linear="cm", angle="deg")
+
+    # Prepare the main progress bar (Requires mel, talk about pathetic)
+    main_progressbar = mel.eval("$tmp = $gMainProgressBar")
+    cmds.progressBar(main_progressbar, edit=True,
+                     beginProgress=True, isInterruptable=False,
+                     status='Loading SEModel...', maxValue=max(1,
+                                                               model.header.boneCount + model.header.meshCount + model.header.matCount))
+
+    # A list of IKJoint handles
+    maya_joint_handles = [None] * model.header.boneCount
+    maya_joint_paths = [None] * model.header.boneCount
+    maya_joints = OpenMaya.MFnTransform()
+    # Create root joints node
+    maya_joint_node = maya_joints.create()
+    maya_joints.setName("Joints")
+
+    # Iterate over the bones and create those first
+    for bone_idx, bone in enumerate(model.bones):
+        cmds.progressBar(main_progressbar, edit=True, step=1)
+
+        new_bone = OpenMayaAnim.MFnIkJoint()
+        bone_scale = OpenMaya.MScriptUtil()
+
+        # Assign parent via index
+        if bone.boneParent <= -1:
+            bone_path = new_bone.create(maya_joint_node)
+        else:
+            bone_path = new_bone.create(maya_joint_handles[bone.boneParent])
+
+        # Rename the joint
+        new_bone.setName(bone.name)
+        maya_joint_paths[bone_idx] = new_bone.fullPathName()
+
+        # Apply information, note: Check whether or not we have locals/globals
+        new_bone.setTranslation(OpenMaya.MVector(
+            bone.localPosition[0], bone.localPosition[1], bone.localPosition[2]),
+            OpenMaya.MSpace.kTransform)
+        new_bone.setOrientation(OpenMaya.MQuaternion(
+            bone.localRotation[0], bone.localRotation[1], bone.localRotation[2],
+            bone.localRotation[3]))
+
+        # Create and apply scale
+        bone_scale.createFromList(
+            [bone.scale[0], bone.scale[1], bone.scale[2]], 3)
+        new_bone.setScale(bone_scale.asDoublePtr())
+
+        # Store the joint for use later
+        maya_joint_handles[bone_idx] = bone_path
+
+    # Iterate over materials and create them next (If they aren't already loaded)
+    for mat in model.materials:
+        cmds.progressBar(main_progressbar, edit=True, step=1)
+
+        # Only make if it doesn't exist
+        if cmds.objExists(mat.name):
+            continue
+
+        # Create the material
+        material = cmds.shadingNode("lambert", asShader=True, name=mat.name)
+        material_group = cmds.sets(
+            renderable=True, empty=True, name=("%sSG" % material))
+        # Connect diffuse
+        cmds.connectAttr(("%s.outColor" % material),
+                         ("%s.surfaceShader" % material_group), force=True)
+        # Create diffuse texture
+        diffuse_image = cmds.shadingNode(
+            'file', name=mat.name + "_c", asTexture=True)
+        cmds.setAttr(("%s.fileTextureName" % diffuse_image),
+                     __build_image_path__(file_path, mat.inputData.diffuseMap), type="string")
+        cmds.connectAttr(("%s.outColor" % diffuse_image),
+                         ("%s.color" % material))
+        # Connect output mapping
+        texture_2d = cmds.shadingNode("place2dTexture", name=(
+            "place2dTexture_%s" % (mat.name + "_c")), asUtility=True)
+        cmds.connectAttr(("%s.outUV" % texture_2d),
+                         ("%s.uvCoord" % diffuse_image))
+
+    # Create the root mesh node
+    maya_meshs = OpenMaya.MFnTransform()
+    maya_mesh_node = maya_meshs.create()
+    maya_meshs.setName(os.path.splitext(os.path.basename(file_path))[0])
+
+    # Iterate over the meshes and create them
+    for mesh in model.meshes:
+        cmds.progressBar(main_progressbar, edit=True, step=1)
+        # Create root transform
+        new_mesh_root = OpenMaya.MFnTransform()
+        new_mesh_node = new_mesh_root.create(maya_mesh_node)
+        new_mesh_root.setName("SEModelMesh")
+
+        # Create mesh
+        new_mesh = OpenMaya.MFnMesh()
+        mesh_vertex_buffer = OpenMaya.MFloatPointArray(mesh.vertexCount)
+        mesh_normal_buffer = OpenMaya.MVectorArray(mesh.vertexCount)
+        mesh_color_buffer = OpenMaya.MColorArray(
+            mesh.vertexCount, OpenMaya.MColor(1, 1, 1, 1))
+        mesh_vertex_index = OpenMaya.MIntArray(mesh.vertexCount, 0)
+        mesh_face_buffer = OpenMaya.MIntArray(mesh.faceCount * 3)
+        mesh_face_counts = OpenMaya.MIntArray(mesh.faceCount, 3)
+        mesh_weight_data = [None] * mesh.vertexCount
+        mesh_weight_bones = set()
+
+        # Support all possible UV layers
+        mesh_uvid_layers = [OpenMaya.MIntArray(
+            mesh.faceCount * 3)] * mesh.matReferenceCount
+        mesh_uvu_layers = [OpenMaya.MFloatArray(
+            mesh.faceCount * 3)] * mesh.matReferenceCount
+        mesh_uvv_layers = [OpenMaya.MFloatArray(
+            mesh.faceCount * 3)] * mesh.matReferenceCount
+
+        # Build buffers
+        for vert_idx, vert in enumerate(mesh.vertices):
+            mesh_vertex_buffer.set(vert_idx,
+                                   vert.position[0], vert.position[1], vert.position[2])
+            mesh_normal_buffer.set(OpenMaya.MVector(
+                vert.normal[0], vert.normal[1], vert.normal[2]), vert_idx)
+            mesh_color_buffer.set(vert_idx,
+                                  vert.color[0], vert.color[1], vert.color[2], vert.color[3])
+            mesh_vertex_index.set(vert_idx, vert_idx)
+
+            # Build a payload set for this vertex
+            vertex_weights = []
+            # Iterate and create the weights
+            for weight in vert.weights:
+                # Weights are valid when value is > 0.0
+                if weight[1] > 0.0:
+                    mesh_weight_bones.add(maya_joint_paths[weight[0]])
+                    vertex_weights.append(
+                        (maya_joint_paths[weight[0]], weight[1]))
+
+            # Add the weight set
+            mesh_weight_data[vert_idx] = (vert_idx, vertex_weights)
+
+        # Face buffer for maya is inverted 1->0->2
+        for face_idx, face in enumerate(mesh.faces):
+            mesh_face_buffer.set(face.indices[1], (face_idx * 3))
+            mesh_face_buffer.set(face.indices[0], (face_idx * 3) + 1)
+            mesh_face_buffer.set(face.indices[2], (face_idx * 3) + 2)
+
+            # Do this per layer
+            for uv_layer in xrange(mesh.matReferenceCount):
+                mesh_uvid_layers[uv_layer].set((face_idx * 3), (face_idx * 3))
+                mesh_uvid_layers[uv_layer].set(
+                    (face_idx * 3) + 1, (face_idx * 3) + 1)
+                mesh_uvid_layers[uv_layer].set(
+                    (face_idx * 3) + 2, (face_idx * 3) + 2)
+                mesh_uvu_layers[uv_layer].set(
+                    mesh.vertices[face.indices[1]].uvLayers[uv_layer][0], (face_idx * 3))
+                mesh_uvu_layers[uv_layer].set(
+                    mesh.vertices[face.indices[0]].uvLayers[uv_layer][0], (face_idx * 3) + 1)
+                mesh_uvu_layers[uv_layer].set(
+                    mesh.vertices[face.indices[2]].uvLayers[uv_layer][0], (face_idx * 3) + 2)
+                mesh_uvv_layers[uv_layer].set(
+                    1 - mesh.vertices[face.indices[1]].uvLayers[uv_layer][1], (face_idx * 3))
+                mesh_uvv_layers[uv_layer].set(
+                    1 - mesh.vertices[face.indices[0]].uvLayers[uv_layer][1], (face_idx * 3) + 1)
+                mesh_uvv_layers[uv_layer].set(
+                    1 - mesh.vertices[face.indices[2]].uvLayers[uv_layer][1], (face_idx * 3) + 2)
+
+        # Create
+        new_mesh.create(mesh.vertexCount, mesh.faceCount, mesh_vertex_buffer, OpenMaya.MIntArray(
+            mesh.faceCount, 3), mesh_face_buffer, new_mesh_node)
+        # Set normals + colors
+        new_mesh.setVertexNormals(mesh_normal_buffer, mesh_vertex_index)
+        new_mesh.setVertexColors(mesh_color_buffer, mesh_vertex_index)
+
+        # Apply UVLayers
+        for uv_layer in xrange(mesh.matReferenceCount):
+            # Use default layer, or, make a new one if need be
+            if uv_layer > 0:
+                new_uv = new_mesh.createUVSetWithName("uvSet")
+            else:
+                new_uv = new_mesh.currentUVSetName()
+
+            # Set uvs
+            new_mesh.setCurrentUVSetName(new_uv)
+            new_mesh.setUVs(
+                mesh_uvu_layers[uv_layer], mesh_uvv_layers[uv_layer], new_uv)
+            new_mesh.assignUVs(
+                mesh_face_counts, mesh_uvid_layers[uv_layer], new_uv)
+
+            # Set material, default to shader if not defined
+            material_index = mesh.materialReferences[uv_layer]
+            if material_index < 0:
+                cmds.sets(new_mesh.fullPathName(),
+                          forceElement="initialShadingGroup")
+            else:
+                cmds.sets(new_mesh.fullPathName(), forceElement=(
+                    "%sSG" % model.materials[material_index].name))
+
+        # Prepare skin weights
+        mesh_skin = __scene_newskin__(new_mesh.fullPathName(), [
+            x for x in mesh_weight_bones], mesh.maxSkinInfluence)
+        if mesh_skin is not None:
+            __scene_bindmesh__(mesh_skin, mesh_weight_data)
+
+    # Close the progress bar
+    cmds.progressBar(main_progressbar, edit=True, endProgress=True)
+
+    # Reconfigure the scene to our liking
+    cmds.autoKeyframe(state=autokeyframe_state)
+    cmds.currentUnit(linear=currentunit_state, angle=currentangle_state)
+
+    # Finished model import
+    __log_info__("SEModel::Import(%s) has been imported successfully"
+                 % os.path.basename(file_path))
+
+
 def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
     """Imports a SEAnim file to the scene"""
     anim = SEAnim.Anim(file_path)
@@ -711,7 +1000,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
         # Attempt to obtain the joint in the scene
         try:
             (joint_path, joint_object, rest_translation,
-             rest_scale, rest_rotation) = __scene_obtainjoint__(
+             _rest_scale, rest_rotation) = __scene_obtainjoint__(
                  joint_name, not blend_anim)
         except RuntimeError:
             __log_info__("SEAnim::ObtainJoint(%s) failed to obtain joint skipping..." %
@@ -892,12 +1181,48 @@ class SEAnimFileManager(OpenMayaMPx.MPxFileTranslator):
         __save_seanim__(fileObject.fullName())
 
     def reader(self, fileObject, optionString, accessMode):
-        __load_seanim__(fileObject.fullName())
+        __load_semodel__(fileObject.fullName())
+
+
+class SEModelFileManager(OpenMayaMPx.MPxFileTranslator):
+    """Handles Maya Import / Export of SEModel files"""
+
+    def __init__(self):
+        OpenMayaMPx.MPxFileTranslator.__init__(self)
+
+    def haveWriteMethod(self):
+        return True
+
+    def haveReadMethod(self):
+        return True
+
+    def identifyFile(self, fileObject, buf, size):
+        if os.path.splitext(fileObject.fullName())[1].lower() == ".semodel":
+            return OpenMayaMPx.MPxFileTranslator.kIsMyFileType
+        return OpenMayaMPx.MPxFileTranslator.kNotMyFileType
+
+    def filter(self):
+        return "*.semodel"
+
+    def defaultExtension(self):
+        return "semodel"
+
+    def writer(self, fileObject, optionString, accessMode):
+        #__save_seanim__(fileObject.fullName())
+        print("TODO")
+
+    def reader(self, fileObject, optionString, accessMode):
+        __load_semodel__(fileObject.fullName())
 
 
 def __seanim_manager__():
     """Create a new manager object"""
     return OpenMayaMPx.asMPxPtr(SEAnimFileManager())
+
+
+def __semodel_manager__():
+    """Create a new manager object"""
+    return OpenMayaMPx.asMPxPtr(SEModelFileManager())
 
 
 def initializePlugin(m_object):
@@ -906,6 +1231,8 @@ def initializePlugin(m_object):
     try:
         m_plugin.registerFileTranslator(
             "SEAnim Animations", None, __seanim_manager__)
+        m_plugin.registerFileTranslator(
+            "SEModel Models", None, __semodel_manager__)
     except RuntimeError:
         __log_info__(
             "SETools::InitializePlugin() failed to register translators!")
@@ -917,6 +1244,7 @@ def uninitializePlugin(m_object):
     m_plugin = OpenMayaMPx.MFnPlugin(m_object)
     try:
         m_plugin.deregisterFileTranslator("SEAnim Animations")
+        m_plugin.deregisterFileTranslator("SEModel Models")
     except RuntimeError:
         __log_info__(
             "SETools::UninitializePlugin() failed to remove translators!")

@@ -11,7 +11,7 @@ A .SE format import / export plugin for Maya (2014+)
 
 ## Installation:
 
-Download the latest [seanim.py](https://raw.githubusercontent.com/dtzxporter/SETools/master/seanim.py) and [SEToolsPlugin.py](https://raw.githubusercontent.com/dtzxporter/SETools/master/SEToolsPlugin.py) from the repo and save them in the following directory depending on your OS and Maya version:
+Download the latest [seanim.py](https://raw.githubusercontent.com/dtzxporter/SETools/master/seanim.py), [semodel.py](https://raw.githubusercontent.com/dtzxporter/SETools/master/semodel.py) and [SEToolsPlugin.py](https://raw.githubusercontent.com/dtzxporter/SETools/master/SEToolsPlugin.py) from the repo and save them in the following directory depending on your OS and Maya version:
 - 32bit Windows: C:\Program Files(x86)\AutoDesk\Maya-ver\bin\plug-ins\
 - 64bit Windows: C:\Program Files\AutoDesk\Maya-ver\bin\plug-ins\
 
@@ -31,9 +31,12 @@ Replace the files in the correct directory from the installation section with th
 - To place a notetrack use "SE Tools -> Edit Notetracks" this will open a menu for editing notetracks and removing them.
 
 *Models:*
-- Coming soon
+- To import a model use "SE Tools -> Import SEModel File" or drag and drop a file, this will import a binded model with it's materials.
 
 ## Changelog:
+
+*v3.1.0:*
+- SEModel importer (Preview)
 
 *v3.0.6:*
 - Remove namespaces on joints when exporting
