@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.0",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.1",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -1181,7 +1181,7 @@ class SEAnimFileManager(OpenMayaMPx.MPxFileTranslator):
         __save_seanim__(fileObject.fullName())
 
     def reader(self, fileObject, optionString, accessMode):
-        __load_semodel__(fileObject.fullName())
+        __load_seanim__(fileObject.fullName())
 
 
 class SEModelFileManager(OpenMayaMPx.MPxFileTranslator):
