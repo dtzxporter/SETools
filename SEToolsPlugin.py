@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.1",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.2",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -832,6 +832,23 @@ def __load_semodel__(file_path=""):
         new_mesh_root = OpenMaya.MFnTransform()
         new_mesh_node = new_mesh_root.create(maya_mesh_node)
         new_mesh_root.setName("SEModelMesh")
+
+        # Perform face validation, maya doesn't like faces with the same verts
+        purge_map = []
+        for face_idx in xrange(mesh.faceCount):
+            face = mesh.faces[face_idx]
+            # Compare indicies
+            if face.indices[0] == face.indices[1]:
+                purge_map.append(face_idx)
+            elif face.indices[0] == face.indices[2]:
+                purge_map.append(face_idx)
+            elif face.indices[1] == face.indices[2]:
+                purge_map.append(face_idx)
+
+        # Remove all invalid faces
+        for face_idx in purge_map:
+            del mesh.faces[face_idx]
+        mesh.faceCount = mesh.faceCount - len(purge_map)
 
         # Create mesh
         new_mesh = OpenMaya.MFnMesh()
