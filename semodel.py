@@ -196,6 +196,20 @@ class SimpleMaterialData(object):
             b = file.read(1)
         self.specularMap = bytes.decode("utf-8")
 
+    def save(self, file):
+        # Diffuse map image
+        bytes = struct.pack('%ds' % (len(self.diffuseMap) + 1),
+                            self.diffuseMap.encode())
+        file.write(bytes)
+        # Normal map image
+        bytes = struct.pack('%ds' % (len(self.normalMap) + 1),
+                            self.normalMap.encode())
+        file.write(bytes)
+        # Specular map image
+        bytes = struct.pack('%ds' % (len(self.specularMap) + 1),
+                            self.specularMap.encode())
+        file.write(bytes)
+
 
 class Material(object):
     __slots__ = ('name', 'isSimpleMaterial', 'inputData')
@@ -217,11 +231,19 @@ class Material(object):
         # Decode name
         self.name = bytes.decode("utf-8")
         # Are we a simple material
-        self.isSimpleMaterial = struct.unpack("?", file.read(1))
+        self.isSimpleMaterial = struct.unpack("?", file.read(1))[0]
 
         # If simple material, decode simple payload
         if (self.isSimpleMaterial):
             self.inputData = SimpleMaterialData(file)
+
+    def save(self, file):
+        bytes = struct.pack('%dsB' % (len(self.name) + 1),
+                            self.name.encode(), self.isSimpleMaterial)
+        file.write(bytes)
+
+        # Ask the input to save itself
+        self.inputData.save(file)
 
 
 class Bone(object):
@@ -312,7 +334,7 @@ class Vertex(object):
 
     def __init__(self, uvSetCount=0, maxSkinInfluence=0):
         self.position = (0, 0, 0)
-        self.normal = (0, 0, 1)
+        self.normal = (0, 0, 0)
         self.color = (1, 1, 1, 1)
 
         self.uvLayers = [(0, 0)] * uvSetCount
@@ -382,6 +404,43 @@ class Vertex(object):
 
         return vertex_buffer
 
+    def savePosition(self, file):
+        bytes = struct.pack(
+            "=3f", self.position[0], self.position[1], self.position[2])
+        file.write(bytes)
+
+    def saveUVLayers(self, file, matReferenceCount):
+        for _idx in xrange(matReferenceCount):
+            if _idx < len(self.uvLayers):
+                bytes = struct.pack(
+                    "=2f", self.uvLayers[_idx][0], self.uvLayers[_idx][1])
+                file.write(bytes)
+            else:
+                bytes = struct.pack(
+                    "=2f", 0, 0)
+                file.write(bytes)
+
+    def saveNormal(self, file):
+        bytes = struct.pack(
+            "=3f", self.normal[0], self.normal[1], self.normal[2])
+        file.write(bytes)
+
+    def saveColor(self, file):
+        bytes = struct.pack(
+            "=4B", self.color[0] * 255, self.color[1] * 255, self.color[2] * 255, self.color[3] * 255)
+        file.write(bytes)
+
+    def saveWeights(self, file, maxSkinInfluence, bone_t):
+        for _idx in xrange(maxSkinInfluence):
+            if _idx < len(self.weights):
+                bytes = struct.pack(
+                    "=%cf" % bone_t.char, self.weights[_idx][0], self.weights[_idx][1])
+                file.write(bytes)
+            else:
+                bytes = struct.pack(
+                    "=%cf" % bone_t.char, 0, 0)
+                file.write(bytes)
+
 
 class Face(object):
     __slots__ = ('indices')
@@ -401,6 +460,11 @@ class Face(object):
             face_buffer[face_idx] = Face(face_data)
 
         return face_buffer
+
+    def save(self, file, face_t):
+        bytes = struct.pack("=3%c" % face_t.char,
+                            self.indices[0], self.indices[1], self.indices[2])
+        file.write(bytes)
 
 
 class Mesh(object):
@@ -462,7 +526,59 @@ class Mesh(object):
 
         # Load material reference buffer (signed int32_t's per count)
         for mat_idx in xrange(self.matReferenceCount):
-            self.materialReferences[mat_idx] = struct.unpack("i", file.read(4))[0]
+            self.materialReferences[mat_idx] = struct.unpack("i", file.read(4))[
+                0]
+
+    def save(self, file, bone_t, useUVs=False, useNormals=False, useColors=False, useWeights=False):
+        # Update metadata first
+        self.vertexCount = len(self.vertices)
+        self.faceCount = len(self.faces)
+
+        face_t = Face_t(self)
+
+        for vertex in self.vertices:
+            if len(vertex.uvLayers) > self.matReferenceCount:
+                self.matReferenceCount = len(vertex.uvLayers)
+            if len(vertex.weights) > self.maxSkinInfluence:
+                self.maxSkinInfluence = len(vertex.weights)
+
+        # Ensure we have enough references per layer, if not, default to no material
+        if len(self.materialReferences) < self.matReferenceCount:
+            for _idx in xrange(self.matReferenceCount - len(self.materialReferences)):
+                self.materialReferences.append(-1)
+
+        bytes = struct.pack("=3BII", self.flags, self.matReferenceCount,
+                            self.maxSkinInfluence, self.vertexCount, self.faceCount)
+        file.write(bytes)
+
+        # Produce vertex buffer by data type
+        for vertex in self.vertices:
+            vertex.savePosition(file)
+
+        if useUVs:
+            for vertex in self.vertices:
+                vertex.saveUVLayers(file, self.matReferenceCount)
+
+        if useNormals:
+            for vertex in self.vertices:
+                vertex.saveNormal(file)
+
+        if useColors:
+            for vertex in self.vertices:
+                vertex.saveColor(file)
+
+        if useWeights:
+            for vertex in self.vertices:
+                vertex.saveWeights(file, self.maxSkinInfluence, bone_t)
+
+        # Produce the face buffer
+        for face in self.faces:
+            face.save(file, face_t)
+
+        # Produce material indices
+        for matIndex in self.materialReferences:
+            bytes = struct.pack("i", matIndex)
+            file.write(bytes)
 
 
 class Model(object):
@@ -478,6 +594,86 @@ class Model(object):
 
         if path is not None:
             self.load(path)
+
+    def update_metadata(self):
+        header = self.header
+        header.boneCount = len(self.bones)
+        header.meshCount = len(self.meshes)
+        header.matCount = len(self.materials)
+
+        dataPresenceFlags = header.dataPresenceFlags
+        bonePresenceFlags = header.bonePresenceFlags
+        meshPresenceFlags = header.meshPresenceFlags
+
+        if header.boneCount:
+            dataPresenceFlags |= SEMODEL_PRESENCE_FLAGS.SEMODEL_PRESENCE_BONE
+        if header.meshCount:
+            dataPresenceFlags |= SEMODEL_PRESENCE_FLAGS.SEMODEL_PRESENCE_MESH
+        if header.matCount:
+            dataPresenceFlags |= SEMODEL_PRESENCE_FLAGS.SEMODEL_PRESENCE_MATERIALS
+
+        # Check for non-default scale, local, global values
+        useScales = False
+        useLocals = False
+        useGlobals = False
+
+        for bone in self.bones:
+            if bone.scale != (1, 1, 1):
+                useScales = True
+            if bone.localPosition != (0, 0, 0) or bone.localRotation != (0, 0, 0, 1):
+                useLocals = True
+            if bone.globalPosition != (0, 0, 0) or bone.globalRotation != (0, 0, 0, 1):
+                useGlobals = True
+
+            # Check to end early
+            if useScales and useLocals and useGlobals:
+                break
+
+        if useScales:
+            bonePresenceFlags |= SEMODEL_BONEPRESENCE_FLAGS.SEMODEL_PRESENCE_SCALES
+        if useLocals:
+            bonePresenceFlags |= SEMODEL_BONEPRESENCE_FLAGS.SEMODEL_PRESENCE_LOCAL_MATRIX
+        if useGlobals:
+            bonePresenceFlags |= SEMODEL_BONEPRESENCE_FLAGS.SEMODEL_PRESENCE_GLOBAL_MATRIX
+
+        # Check for non-default properties
+        useNormals = False
+        useColors = False
+        useUVSet = False
+        useWeights = False
+
+        for mesh in self.meshes:
+            for vertex in mesh.vertices:
+                if len(vertex.uvLayers):
+                    useUVSet = True
+                if len(vertex.weights):
+                    useWeights = True
+                if vertex.color != (1, 1, 1, 1):
+                    useColors = True
+                if vertex.normal != (0, 0, 0):
+                    useNormals = True
+
+                # Check to end early
+                if useNormals and useColors and useUVSet and useWeights:
+                    break
+
+            # Check to end early
+            if useNormals and useColors and useUVSet and useWeights:
+                break
+
+        if useNormals:
+            meshPresenceFlags |= SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_NORMALS
+        if useColors:
+            meshPresenceFlags |= SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_COLOR
+        if useUVSet:
+            meshPresenceFlags |= SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_UVSET
+        if useWeights:
+            meshPresenceFlags |= SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_WEIGHTS
+
+        # Assign header values
+        header.dataPresenceFlags = dataPresenceFlags
+        header.bonePresenceFlags = bonePresenceFlags
+        header.meshPresenceFlags = meshPresenceFlags
 
     def load(self, path):
         if LOG_READ_TIME:
@@ -537,6 +733,58 @@ class Model(object):
         file.close()
 
         if LOG_READ_TIME:
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            print("Done! - Completed in %ss" % time_elapsed)
+
+    def save(self, filepath=""):
+        if LOG_WRITE_TIME:
+            time_start = time.time()
+            print("Saving: '%s'" % filepath)
+
+        try:
+            file = open(filepath, "wb")
+        except IOError:
+            print("Could not open the file for writing:\n %s" % filepath)
+            return
+
+        # Update the header flags, based on the presence of different data types (Bones, Meshes, Materials)
+        self.update_metadata()
+
+        self.__info.save(file)
+        self.header.save(file)
+
+        for bone in self.bones:
+            bytes = struct.pack(
+                '%ds' % (len(bone.name) + 1), bone.name.encode())
+            file.write(bytes)
+
+        bonePresenceFlags = self.header.bonePresenceFlags
+        meshPresenceFlags = self.header.meshPresenceFlags
+
+        useGlobals = bonePresenceFlags & SEMODEL_BONEPRESENCE_FLAGS.SEMODEL_PRESENCE_GLOBAL_MATRIX
+        useLocals = bonePresenceFlags & SEMODEL_BONEPRESENCE_FLAGS.SEMODEL_PRESENCE_LOCAL_MATRIX
+        useScales = bonePresenceFlags & SEMODEL_BONEPRESENCE_FLAGS.SEMODEL_PRESENCE_SCALES
+
+        useUVSet = meshPresenceFlags & SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_UVSET
+        useNormal = meshPresenceFlags & SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_NORMALS
+        useColor = meshPresenceFlags & SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_COLOR
+        useWeights = meshPresenceFlags & SEMODEL_MESHPRESENCE_FLAGS.SEMODEL_PRESENCE_WEIGHTS
+
+        bone_t = Bone_t(self.header)
+
+        for bone in self.bones:
+            bone.save(file, useGlobals, useLocals, useScales)
+
+        for mesh in self.meshes:
+            mesh.save(file, bone_t, useUVSet, useNormal, useColor, useWeights)
+
+        for mat in self.materials:
+            mat.save(file)
+
+        file.close()
+
+        if LOG_WRITE_TIME:
             time_end = time.time()
             time_elapsed = time_end - time_start
             print("Done! - Completed in %ss" % time_elapsed)
