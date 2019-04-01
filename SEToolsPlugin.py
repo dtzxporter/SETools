@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.3",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.4",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -525,31 +525,27 @@ def __scene_bindmesh__(mesh_skin, weight_data):
         joint_indicies[str(_tmp_array[idx].fullPathName())
                        ] = mesh_skin.indexForInfluenceObject(_tmp_array[idx])
 
-    # Find the weights list
-    weight_list_plug = mesh_skin.findPlug("weightList")
-    weight_list_attr = weight_list_plug.attribute()
-    weight_plug = mesh_skin.findPlug("weights")
-
     # Base format payload
     cluster_attr = str(mesh_skin.name()) + ".weightList[%d]"
-    _tmp_index = OpenMaya.MIntArray()
 
     # Iterate and apply weights
     for vertex, weights in weight_data:
         # Query new indicies
-        weight_plug.selectAncestorLogicalIndex(vertex, weight_list_attr)
-        weight_plug.getExistingArrayAttributeIndices(_tmp_index)
+        weight_values = [0] * _tmp_array.length()
 
         # Build final string
-        weight_payload = cluster_attr % vertex + ".weights[%d]"
-
-        # Remove existing data
-        for idx in xrange(_tmp_index.length()):
-            cmds.removeMultiInstance(weight_payload % _tmp_index[idx])
+        if _tmp_array.length() == 1:
+            weight_payload = cluster_attr % vertex + ".weights[0]"
+        else:
+            weight_payload = cluster_attr % vertex + \
+                (".weights[0:%d]" % (_tmp_array.length() - 1))
 
         # Iterate over weights per bone
         for joint, weight_val in weights:
-            cmds.setAttr(weight_payload % joint_indicies[joint], weight_val)
+            weight_values[joint_indicies[joint]] = weight_val
+
+        # Set all weights at once
+        cmds.setAttr(weight_payload, *weight_values)
 
 
 def __build_image_path__(asset_path, image_path):
