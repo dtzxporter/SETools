@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.4",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.5",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -520,25 +520,27 @@ def __scene_bindmesh__(mesh_skin, weight_data):
     # Build a list of API specific joint ids
     _tmp_array = OpenMaya.MDagPathArray()
     mesh_skin.influenceObjects(_tmp_array)
+    _tmp_array_len = _tmp_array.length()
+
     # Iterate and assign indicies for names
-    for idx in xrange(_tmp_array.length()):
+    for idx in xrange(_tmp_array_len):
         joint_indicies[str(_tmp_array[idx].fullPathName())
                        ] = mesh_skin.indexForInfluenceObject(_tmp_array[idx])
 
     # Base format payload
     cluster_attr = str(mesh_skin.name()) + ".weightList[%d]"
+    cluster_array_attr = (".weights[0:%d]" % (_tmp_array_len - 1))
+
+    # Buffer for new indicies
+    weight_values = [0] * _tmp_array_len
 
     # Iterate and apply weights
     for vertex, weights in weight_data:
-        # Query new indicies
-        weight_values = [0] * _tmp_array.length()
-
         # Build final string
-        if _tmp_array.length() == 1:
+        if _tmp_array_len == 1:
             weight_payload = cluster_attr % vertex + ".weights[0]"
         else:
-            weight_payload = cluster_attr % vertex + \
-                (".weights[0:%d]" % (_tmp_array.length() - 1))
+            weight_payload = cluster_attr % vertex + cluster_array_attr
 
         # Iterate over weights per bone
         for joint, weight_val in weights:
@@ -546,6 +548,8 @@ def __scene_bindmesh__(mesh_skin, weight_data):
 
         # Set all weights at once
         cmds.setAttr(weight_payload, *weight_values)
+        # Clear for the next one
+        weight_values = [0] * _tmp_array_len
 
 
 def __build_image_path__(asset_path, image_path):
