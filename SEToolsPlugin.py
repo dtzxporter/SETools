@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.1.5",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.2.0",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -845,8 +845,8 @@ def __load_semodel__(file_path=""):
             elif face.indices[1] == face.indices[2]:
                 purge_map.append(face_idx)
 
-        # Remove all invalid faces
-        for face_idx in purge_map:
+        # Remove all invalid faces, reverse order to prevent reordering
+        for face_idx in reversed(purge_map):
             del mesh.faces[face_idx]
         mesh.faceCount = mesh.faceCount - len(purge_map)
 
@@ -979,15 +979,26 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
     end_frame = max(1, anim.header.frameCount - 1)
     end_frame = end_frame + start_frame
 
-    cmds.playbackOptions(ast=0, minTime=0)
-    cmds.playbackOptions(maxTime=end_frame, aet=end_frame)
-
     # We need to configure the scene, save current state and change back later
     autokeyframe_state = cmds.autoKeyframe(query=True)
     currentunit_state = cmds.currentUnit(query=True, linear=True)
     currentangle_state = cmds.currentUnit(query=True, angle=True)
+
+    # Set our required values, fps may error, meaning maya can't use this specific value, so we catch it
     cmds.autoKeyframe(state=False)
     cmds.currentUnit(linear="cm", angle="deg")
+
+    try:
+        cmds.currentUnit(time="%dfps" % anim.header.framerate)
+    except RuntimeError:
+        cmds.currentUnit(time="film")
+
+    # This is the scene FPS unit, as an enumeration
+    sceneFpsEnum = OpenMaya.MTime.uiUnit()
+
+    # Set the end times after setting the required FPS
+    cmds.playbackOptions(ast=0, minTime=0)
+    cmds.playbackOptions(maxTime=end_frame, aet=end_frame)
 
     # Prepare the main progress bar (Requires mel, talk about pathetic)
     main_progressbar = mel.eval("$tmp = $gMainProgressBar")
@@ -1048,7 +1059,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
 
             # Loop through and add keyframes
             for key in bone.posKeys:
-                key_time = OpenMaya.MTime(start_frame + key.frame)
+                key_time = OpenMaya.MTime(start_frame + key.frame, sceneFpsEnum)
                 if curve_pos_x:
                     curve_pos_x.addKeyframe(
                         key_time, key.data[0] + rel_transform[0],
@@ -1081,7 +1092,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
 
             # Loop through and add keyframes
             for key in bone.scaleKeys:
-                key_time = OpenMaya.MTime(start_frame + key.frame)
+                key_time = OpenMaya.MTime(start_frame + key.frame, sceneFpsEnum)
                 if curve_scale_x:
                     curve_scale_x.addKeyframe(
                         key_time, key.data[0],
@@ -1130,7 +1141,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
 
             # Loop through and add keyframes
             for key in bone.rotKeys:
-                key_time = OpenMaya.MTime(start_frame + key.frame)
+                key_time = OpenMaya.MTime(start_frame + key.frame, sceneFpsEnum)
                 euler_frame = (OpenMaya.MQuaternion(
                     key.data[0], key.data[1],
                     key.data[2], key.data[3]) * rel_transform).asEulerRotation()
