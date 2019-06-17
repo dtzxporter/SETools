@@ -1,4 +1,4 @@
-# SETools - Maya (v3.2.0)
+# SETools - Maya (v3.2.1)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,9 @@ Replace the files in the correct directory from the installation section with th
 - To import a model use "SE Tools -> Import SEModel File" or drag and drop a file, this will import a binded model with it's materials.
 
 ## Changelog:
+
+*v3.2.1:*
+- Fixes to FPS settings in Maya
 
 *v3.2.0:*
 - SEAnims now properly respect their framerate value if supported by Maya

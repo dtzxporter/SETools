@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.2.0",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.2.1",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -986,12 +986,7 @@ def __load_seanim__(file_path="", scene_time=False, blend_anim=False):
 
     # Set our required values, fps may error, meaning maya can't use this specific value, so we catch it
     cmds.autoKeyframe(state=False)
-    cmds.currentUnit(linear="cm", angle="deg")
-
-    try:
-        cmds.currentUnit(time="%dfps" % anim.header.framerate)
-    except RuntimeError:
-        cmds.currentUnit(time="film")
+    cmds.currentUnit(linear="cm", angle="deg", time="film")
 
     # This is the scene FPS unit, as an enumeration
     sceneFpsEnum = OpenMaya.MTime.uiUnit()
