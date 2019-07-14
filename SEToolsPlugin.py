@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.2.2",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.3.0",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -863,12 +863,14 @@ def __load_semodel__(file_path=""):
         mesh_weight_bones = set()
 
         # Support all possible UV layers
-        mesh_uvid_layers = [OpenMaya.MIntArray(
-            mesh.faceCount * 3)] * mesh.matReferenceCount
-        mesh_uvu_layers = [OpenMaya.MFloatArray(
-            mesh.faceCount * 3)] * mesh.matReferenceCount
-        mesh_uvv_layers = [OpenMaya.MFloatArray(
-            mesh.faceCount * 3)] * mesh.matReferenceCount
+        mesh_uvid_layers = OpenMaya.MIntArray(mesh.faceCount * 3)
+        mesh_uvu_layers = []
+        mesh_uvv_layers = []
+
+        # We must generate them this way to python doesn't clone an object
+        for uv_layer in xrange(mesh.matReferenceCount):
+            mesh_uvu_layers.append(OpenMaya.MFloatArray(mesh.faceCount * 3))
+            mesh_uvv_layers.append(OpenMaya.MFloatArray(mesh.faceCount * 3))
 
         # Build buffers
         for vert_idx, vert in enumerate(mesh.vertices):
@@ -899,13 +901,12 @@ def __load_semodel__(file_path=""):
             mesh_face_buffer.set(face.indices[0], (face_idx * 3) + 1)
             mesh_face_buffer.set(face.indices[2], (face_idx * 3) + 2)
 
+            mesh_uvid_layers.set((face_idx * 3), (face_idx * 3))
+            mesh_uvid_layers.set((face_idx * 3) + 1, (face_idx * 3) + 1)
+            mesh_uvid_layers.set((face_idx * 3) + 2, (face_idx * 3) + 2)
+
             # Do this per layer
             for uv_layer in xrange(mesh.matReferenceCount):
-                mesh_uvid_layers[uv_layer].set((face_idx * 3), (face_idx * 3))
-                mesh_uvid_layers[uv_layer].set(
-                    (face_idx * 3) + 1, (face_idx * 3) + 1)
-                mesh_uvid_layers[uv_layer].set(
-                    (face_idx * 3) + 2, (face_idx * 3) + 2)
                 mesh_uvu_layers[uv_layer].set(
                     mesh.vertices[face.indices[1]].uvLayers[uv_layer][0], (face_idx * 3))
                 mesh_uvu_layers[uv_layer].set(
@@ -928,9 +929,9 @@ def __load_semodel__(file_path=""):
 
         # Apply UVLayers
         for uv_layer in xrange(mesh.matReferenceCount):
-            # Use default layer, or, make a new one if need be
+            # Use default layer, or, make a new one if need be, following maya names
             if uv_layer > 0:
-                new_uv = new_mesh.createUVSetWithName("uvSet")
+                new_uv = new_mesh.createUVSetWithName(("map%d" % (uv_layer + 1)))
             else:
                 new_uv = new_mesh.currentUVSetName()
 
@@ -939,16 +940,21 @@ def __load_semodel__(file_path=""):
             new_mesh.setUVs(
                 mesh_uvu_layers[uv_layer], mesh_uvv_layers[uv_layer], new_uv)
             new_mesh.assignUVs(
-                mesh_face_counts, mesh_uvid_layers[uv_layer], new_uv)
+                mesh_face_counts, mesh_uvid_layers, new_uv)
 
             # Set material, default to shader if not defined
             material_index = mesh.materialReferences[uv_layer]
-            if material_index < 0:
-                cmds.sets(new_mesh.fullPathName(),
-                          forceElement="initialShadingGroup")
-            else:
-                cmds.sets(new_mesh.fullPathName(), forceElement=(
-                    "%sSG" % model.materials[material_index].name))
+            try:
+                if material_index < 0:
+                    cmds.sets(new_mesh.fullPathName(),
+                            forceElement="initialShadingGroup")
+                else:
+                    cmds.sets(new_mesh.fullPathName(), forceElement=(
+                        "%sSG" % model.materials[material_index].name))
+            except RuntimeError:
+                # Occurs when a material was already assigned to the mesh...
+                pass
+
 
         # Prepare skin weights
         mesh_skin = __scene_newskin__(new_mesh.fullPathName(), [
