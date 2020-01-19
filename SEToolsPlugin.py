@@ -118,6 +118,9 @@ def __create_menu__():
 
     cmds.menuItem(label="Import SEModel File",
                   annotation="Imports a SEModel File", command=lambda x: __import_semodel__())
+    cmds.menuItem(divider=True)
+    cmds.menuItem(label="Export SEModel File", command=lambda x: __export_semodel__(
+    ), annotation="Exports a SEModel file using either selected objects or all of them")
 
     cmds.setParent(model_menu, menu=True)
     cmds.setParent(menu, menu=True)
@@ -631,6 +634,17 @@ def __scene_resolve_animoverride__(joint_name, bone_anim_mods):
         return None
 
 
+def __scene_getobjectdag__(mobject):
+    """Resolve the dag path object from a base type"""
+    select_list = OpenMaya.MSelectionList()
+    select_list.add(OpenMaya.MFnDagNode(mobject).fullPathName())
+
+    result = OpenMaya.MDagPath()
+    select_list.getDagPath(0, result)
+
+    return result
+
+
 def __import_seanim__(scene_time=False, blend_anim=False):
     """Asks for a file to import"""
     import_file = __importfile_dialog__(
@@ -653,6 +667,61 @@ def __import_semodel__():
         "SEModel Files (*.semodel)", "Import SEModel")
     if import_file:
         __load_semodel__(import_file)
+
+
+def __export_semodel__():
+    """Asks for a file to export"""
+    export_file = __exportfile_dialog__(
+        "SEModel Files (*.semodel)", "Export SEModel")
+    if export_file:
+        __save_semodel__(export_file)
+
+
+def __save_semodel__(file_path):
+    """Saves the scene as a SEModel file"""
+    model = SEModel.Model()
+
+    # We need to get the current selection, or, select all if none
+    select_list = OpenMaya.MSelectionList()
+    OpenMaya.MGlobal.getActiveSelectionList(select_list)
+
+    # If empty, select all joints/meshes
+    if (select_list.length() == 0):
+        mel.eval("string $selected[] = `ls -type joint`; select -r $selected;")
+        mel.eval("string $transforms[] = `ls -tr`;string $polyMeshes[] = `filterExpand -sm 12 $transforms`;select -add $polyMeshes;")
+        OpenMaya.MGlobal.getActiveSelectionList(select_list)
+
+    # If still empty, error blank scene
+    if (select_list.length() == 0):
+        __log_info__(
+            "SEModel::Export(%s) could not find any "
+            "valid objects to export" % os.path.basename(file_path))
+        return
+
+    unique_bones = set()
+
+    # Build bones first
+    for index in xrange(select_list.length()):
+        depend_node = OpenMaya.MObject()
+        select_list.getDependNode(index, depend_node)
+        if not depend_node.hasFn(OpenMaya.MFn.kJoint):
+            continue
+
+        path = __scene_getobjectdag__(depend_node)
+        controller = OpenMayaAnim.MFnIkJoint(path)
+
+        tag_name = controller.name()
+
+        if tag_name in unique_bones:
+            continue
+        unique_bones.add(tag_name)
+
+        print("todo from here... %s" % controller.name())
+
+   # Save as a file
+    model.save(file_path)
+    __log_info__(
+        "SEModel::Export(%s) the model was saved successfully" % os.path.basename(file_path))
 
 
 def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_scales=True):
@@ -1243,7 +1312,7 @@ class SEModelFileManager(OpenMayaMPx.MPxFileTranslator):
         return "semodel"
 
     def writer(self, fileObject, optionString, accessMode):
-        #__save_seanim__(fileObject.fullName())
+        __save_semodel__(fileObject.fullName())
         print("TODO")
 
     def reader(self, fileObject, optionString, accessMode):
