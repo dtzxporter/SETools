@@ -1,4 +1,4 @@
-# SETools - Maya (v3.3.0)
+# SETools - Maya (v3.3.1)
 
 A .SE format import / export plugin for Maya (2014+)
 
@@ -34,6 +34,9 @@ Replace the files in the correct directory from the installation section with th
 - To import a model use "SE Tools -> Import SEModel File" or drag and drop a file, this will import a binded model with it's materials.
 
 ## Changelog:
+
+*v3.3.1:*
+- Fixed long standing bug where reset scene would not detect .r vs .jo usage and break on certain models. (Now picks based on what is set)
 
 *v3.3.0:*
 - Support for multiple UV layer import of SEModels

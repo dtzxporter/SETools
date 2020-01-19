@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.3.0",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.3.1",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -398,6 +398,11 @@ def __scene_getjoint__(joint_name):
     return None
 
 
+def __is_rotation_bzero__(rotation):
+    """Checks for zero rotation"""
+    return (rotation[0] == 0.0 and rotation[1] == 0.0 and rotation[2] == 0.0)
+
+
 def __scene_obtainjoint__(joint_name, reset_rest=True):
     """Attempts to fetch the joint object"""
     select_list = OpenMaya.MSelectionList()
@@ -414,7 +419,14 @@ def __scene_obtainjoint__(joint_name, reset_rest=True):
     if not cmds.objExists(joint_name + ".seanimRestT"):
         rest_translation = cmds.getAttr(joint_name + ".t")[0]
         rest_scale = cmds.getAttr(joint_name + ".scale")[0]
-        rest_rotation = cmds.getAttr(joint_name + ".jo")[0]
+        rest_rotation_jo = cmds.getAttr(joint_name + ".jo")[0]
+        rest_rotation_r = cmds.getAttr(joint_name + ".r")[0]
+
+        # Take whichever one is used
+        if __is_rotation_bzero__(rest_rotation_jo):
+            rest_rotation = rest_rotation_r
+        else:
+            rest_rotation = rest_rotation_jo
 
         cmds.addAttr(joint_name, longName="seanimRestT",
                      dataType="double3", storable=True)
@@ -931,7 +943,8 @@ def __load_semodel__(file_path=""):
         for uv_layer in xrange(mesh.matReferenceCount):
             # Use default layer, or, make a new one if need be, following maya names
             if uv_layer > 0:
-                new_uv = new_mesh.createUVSetWithName(("map%d" % (uv_layer + 1)))
+                new_uv = new_mesh.createUVSetWithName(
+                    ("map%d" % (uv_layer + 1)))
             else:
                 new_uv = new_mesh.currentUVSetName()
 
@@ -947,14 +960,13 @@ def __load_semodel__(file_path=""):
             try:
                 if material_index < 0:
                     cmds.sets(new_mesh.fullPathName(),
-                            forceElement="initialShadingGroup")
+                              forceElement="initialShadingGroup")
                 else:
                     cmds.sets(new_mesh.fullPathName(), forceElement=(
                         "%sSG" % model.materials[material_index].name))
             except RuntimeError:
                 # Occurs when a material was already assigned to the mesh...
                 pass
-
 
         # Prepare skin weights
         mesh_skin = __scene_newskin__(new_mesh.fullPathName(), [
