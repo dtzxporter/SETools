@@ -323,6 +323,41 @@ def __purge_namespaces__():
                 pass
 
 
+def __get_nodenamespace__(name):
+    """Gets the namespace of a node if any"""
+    if name.find(":") > -1:
+        return name[:name.find(":")]
+    return None
+
+
+def __create_nodenamespace__(node):
+    """Creates the global namespace"""
+    namespace = __get_nodenamespace__(node)
+    if namespace is not None:
+        if not OpenMaya.MNamespace().namespaceExists(":" + namespace):
+            OpenMaya.MNamespace().addNamespace(":" + namespace)
+
+
+def __get_parentname__(joint):
+    """Gets the parent node name if any"""
+    full_path = joint.fullPathName()
+    split_path = full_path[1:].split("|")
+
+    if len(split_path) > 2:
+        return split_path[len(split_path) - 2]
+    elif (len(split_path) == 2):
+        select_list = OpenMaya.MSelectionList()
+        select_list.add(full_path[0:full_path.find("|", 1)])
+
+        result = OpenMaya.MDagPath()
+        select_list.getDagPath(0, result)
+
+        if (result.hasFn(OpenMaya.MFn.kJoint)):
+            return split_path[len(split_path) - 2]
+
+    return ""
+
+
 def __disconnect_curve__(plug_source):
     """Disconnects an animation curve from the plug"""
     input_sources = OpenMaya.MPlugArray()
@@ -502,6 +537,20 @@ def __scene_getcurve__(joint_transform, plug_name, curve_type):
     return anim_curve
 
 
+def __scene_getskin__(skin_name):
+    """Gets a new skin object, or none if invalid"""
+    if skin_name is None or skin_name == "" or skin_name.isspace():
+        return None
+
+    # Build the list and find the object
+    select_list = OpenMaya.MSelectionList()
+    select_list.add(skin_name)
+    cluster_node = OpenMaya.MObject()
+    select_list.getDependNode(0, cluster_node)
+    # return cluster controller
+    return OpenMayaAnim.MFnSkinCluster(cluster_node)
+
+
 def __scene_newskin__(mesh_path, joints=[], max_influence=1):
     """Creates a skin cluster for the mesh"""
     skin_params = [x for x in joints]
@@ -645,6 +694,33 @@ def __scene_getobjectdag__(mobject):
     return result
 
 
+def __scene_getmaterials__(mesh, path):
+    """Gets materials for the given mesh"""
+    result = []
+    shaders = OpenMaya.MObjectArray()
+    shaderindices = OpenMaya.MIntArray()
+    mesh.getConnectedShaders(path.instanceNumber(), shaders, shaderindices)
+
+    for index in xrange(shaders.length()):
+        shadernode = OpenMaya.MFnDependencyNode(shaders[index])
+        shaderplug = shadernode.findPlug("surfaceShader")
+        matplug = OpenMaya.MPlugArray()
+        shaderplug.connectedTo(matplug, True, False)
+
+        if matplug.length() > 0:
+            result.append(OpenMaya.MFnDependencyNode(matplug[0].node()).name())
+
+    return result
+
+
+def __bonelist_indexof__(bonelist, name):
+    """Returns the first bone that matches."""
+    for index in xrange(len(bonelist)):
+        if (bonelist[index].name == name):
+            return index
+    return -1
+
+
 def __import_seanim__(scene_time=False, blend_anim=False):
     """Asks for a file to import"""
     import_file = __importfile_dialog__(
@@ -698,6 +774,11 @@ def __save_semodel__(file_path):
             "valid objects to export" % os.path.basename(file_path))
         return
 
+    # TODO: We need to set materials from uv_layers
+    # Make sure materials are in model
+    # We need to set scene defaults and reset after exporting... (Copy from anim)
+
+    parent_stack = []
     unique_bones = set()
 
     # Build bones first
@@ -709,14 +790,201 @@ def __save_semodel__(file_path):
 
         path = __scene_getobjectdag__(depend_node)
         controller = OpenMayaAnim.MFnIkJoint(path)
-
         tag_name = controller.name()
 
         if tag_name in unique_bones:
             continue
         unique_bones.add(tag_name)
 
-        print("todo from here... %s" % controller.name())
+        new_bone = SEModel.Bone()
+        new_bone.name = tag_name
+        parent_stack.append(__get_parentname__(controller))
+
+        # Get the world and local space transforms,
+        # semodels use both so we can help the loader later
+        world_position = controller.getTranslation(OpenMaya.MSpace.kWorld)
+        local_position = controller.getTranslation(OpenMaya.MSpace.kTransform)
+        world_rotation = OpenMaya.MQuaternion()
+        local_rotation = OpenMaya.MQuaternion()
+        local_orientation = OpenMaya.MQuaternion()
+
+        controller.getRotation(world_rotation, OpenMaya.MSpace.kWorld)
+        controller.getRotation(local_rotation, OpenMaya.MSpace.kTransform)
+        controller.getOrientation(local_orientation)
+
+        # This is how maya's rotations for ikjoints work, they have two rotation
+        # properties, rotation x joint orient
+        local_rotation_mat = local_rotation * local_orientation
+
+        scale_list = OpenMaya.MScriptUtil()
+        scale_list.createFromList([1.0, 1.0, 1.0], 3)
+        scale_ptr = scale_list.asDoublePtr()
+
+        controller.getScale(scale_ptr)
+
+        new_bone.globalPosition = (
+            world_position.x, world_position.y, world_position.z)
+        new_bone.localPosition = (
+            local_position.x, local_position.y, local_position.z)
+        new_bone.globalRotation = (
+            world_rotation.x, world_rotation.y, world_rotation.z, world_rotation.w)
+        new_bone.localRotation = (
+            local_rotation_mat.x, local_rotation_mat.y, local_rotation_mat.z, local_rotation_mat.w)
+        new_bone.scale = (OpenMaya.MScriptUtil().getDoubleArrayItem(scale_ptr, 0),
+                          OpenMaya.MScriptUtil().getDoubleArrayItem(scale_ptr, 1),
+                          OpenMaya.MScriptUtil().getDoubleArrayItem(scale_ptr, 2))
+        new_bone.boneParent = -1    # Default to root bone for now, will modify after
+
+        model.bones.append(new_bone)
+
+    # We must generate the proper bone parent indices
+    for index in xrange(len(parent_stack)):
+        model.bones[index].boneParent = __bonelist_indexof__(
+            model.bones, parent_stack[index])
+
+    material_index = 0
+    used_materials = {}
+    unique_meshes = set()
+
+    # We can now process meshes
+    for index in xrange(select_list.length()):
+        depend_node = OpenMaya.MObject()
+        select_list.getDependNode(index, depend_node)
+        path = __scene_getobjectdag__(depend_node)
+
+        # Meshes at the base are transforms
+        if not depend_node.hasFn(OpenMaya.MFn.kTransform):
+            continue
+        # If the transform is invalid, continue
+        try:
+            path.extendToShape()
+        except RuntimeError:
+            continue
+
+        # We have a valid mesh
+        controller = OpenMaya.MFnMesh(path)
+
+        if path.partialPathName() in unique_meshes:
+            continue
+        unique_meshes.add(path.partialPathName())
+        # Fetch materials and only keep unique ones
+        mats = __scene_getmaterials__(controller, path)
+        for mat in mats:
+            if not mat in used_materials:
+                used_materials[mat] = material_index
+                material_index += 1
+
+        new_mesh = SEModel.Mesh()
+
+        vertex_iterator = OpenMaya.MItMeshVertex(path)
+        face_iterator = OpenMaya.MItMeshPolygon(path)
+        uv_sets = cmds.polyUVSet(
+            path.partialPathName(), q=True, allUVSets=True)
+        skin_cluster = __scene_getskin__(
+            mel.eval("findRelatedSkinCluster " + path.partialPathName()))
+        skin_joints = OpenMaya.MDagPathArray()
+        model_joints = [x.name for x in model.bones]
+
+        if skin_cluster is not None:
+            skin_cluster.influenceObjects(skin_joints)
+
+        uv_set_max = len(uv_sets)
+        max_influence = 0
+
+        # Calculate maximum influence
+        while not vertex_iterator.isDone():
+            if skin_cluster is not None:
+                # Get the weights to calculate maximum influence
+                num_weights = OpenMaya.MScriptUtil()
+                weight_values = OpenMaya.MDoubleArray()
+                skin_cluster.getWeights(path, vertex_iterator.currentItem(
+                ), weight_values, num_weights.asUintPtr())
+
+                influence = 0
+
+                for vindex in xrange(weight_values.length()):
+                    if weight_values[vindex] > 0.000001:
+                        influence += 1
+
+                if influence > max_influence:
+                    max_influence = influence
+            vertex_iterator.next()
+
+        vertex_iterator.reset()
+
+        # Build the vertex buffer
+        while not vertex_iterator.isDone():
+            new_vertex = SEModel.Vertex(uv_set_max, max_influence)
+
+            vertex_position = vertex_iterator.position(OpenMaya.MSpace.kWorld)
+            vertex_normal = OpenMaya.MVector()
+            vertex_color = OpenMaya.MColor()
+            vertex_iterator.getNormal(vertex_normal)
+            vertex_iterator.getColor(vertex_color)
+
+            new_vertex.position = (
+                vertex_position.x, vertex_position.y, vertex_position.z)
+            new_vertex.normal = (
+                vertex_normal.x, vertex_normal.y, vertex_normal.z)
+            new_vertex.color = (vertex_color.r, vertex_color.g,
+                                vertex_color.b, vertex_color.a)
+
+            # Build uv layers from the set
+            for uv_layer, uv_set in enumerate(uv_sets):
+                # Fetch the face linked uvs
+                uvus = OpenMaya.MFloatArray()
+                uvvs = OpenMaya.MFloatArray()
+                faceids = OpenMaya.MIntArray()
+                vertex_iterator.getUVs(uvus, uvvs, faceids, uv_set)
+                uvu = 0
+                uvv = 0
+                # Vertex uv is average of all face uvs
+                count = uvus.length()
+                for id in xrange(count):
+                    uvu += (uvus[id] / count)
+                    uvv += (uvvs[id]/ count)
+                new_vertex.uvLayers[uv_layer] = (uvu, 1 - uvv)
+
+            # Build the weights if we have any
+            if skin_cluster is not None:
+                num_weights = OpenMaya.MScriptUtil()
+                weight_values = OpenMaya.MDoubleArray()
+                skin_cluster.getWeights(path, vertex_iterator.currentItem(
+                ), weight_values, num_weights.asUintPtr())
+
+                weight_index = 0
+
+                for vindex in xrange(weight_values.length()):
+                    if weight_values[vindex] > 0.000001:
+                        new_vertex.weights[weight_index] = (model_joints.index(skin_joints[vindex].partialPathName()), weight_values[vindex])
+                        weight_index+= 1
+
+
+            new_mesh.vertices.append(new_vertex)
+            vertex_iterator.next()
+
+        # Build the face buffer
+        while not face_iterator.isDone():
+            indices = OpenMaya.MIntArray()
+            face_iterator.getVertices(indices)
+
+            if indices.length() < 3:
+                continue
+
+            if indices.length() == 3:
+                # Default to tris
+                new_face = SEModel.Face((indices[1], indices[0], indices[2]))
+                new_mesh.faces.append(new_face)
+            else:
+                # Convert quat to tris
+                new_face = SEModel.Face((indices[1], indices[0], indices[2]))
+                new_face2 = SEModel.Face((indices[2], indices[0], indices[3]))
+                new_mesh.faces.append(new_face)
+                new_mesh.faces.append(new_face2)
+
+            face_iterator.next()
+
+        model.meshes.append(new_mesh)
 
    # Save as a file
     model.save(file_path)
@@ -770,9 +1038,7 @@ def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_sc
             cmds.progressBar(main_progressbar, edit=True, step=1)
 
             new_bone = SEAnim.Bone()
-
-            # Remove namespaces, if any
-            new_bone.name = bone.split(":")[-1]
+            new_bone.name = bone
 
             # Fetch scene frames from the current range
             for frame in frame_range:
@@ -844,17 +1110,28 @@ def __load_semodel__(file_path=""):
     for bone_idx, bone in enumerate(model.bones):
         cmds.progressBar(main_progressbar, edit=True, step=1)
 
+        # Before creating the bone, we need to make the namespace
+        __create_nodenamespace__(bone.name)
+
+        # Create a new bone
         new_bone = OpenMayaAnim.MFnIkJoint()
-        bone_scale = OpenMaya.MScriptUtil()
-
-        # Assign parent via index
-        if bone.boneParent <= -1:
-            bone_path = new_bone.create(maya_joint_node)
-        else:
-            bone_path = new_bone.create(maya_joint_handles[bone.boneParent])
-
-        # Rename the joint
+        new_bone.create(maya_joint_node)
+        # Set name and add to cache
         new_bone.setName(bone.name)
+        maya_joint_handles[bone_idx] = new_bone
+
+    # Iterate over the bones and set parents
+    for bone_idx, bone in enumerate(model.bones):
+        # Add the joint as a child of the original
+        if bone.boneParent > -1:
+            cmds.parent(maya_joint_handles[bone_idx].fullPathName(
+            ), maya_joint_handles[bone.boneParent].fullPathName())
+
+    # Iterate over the bones and set the actual data
+    for bone_idx, bone in enumerate(model.bones):
+        # Used for scale utils
+        bone_scale = OpenMaya.MScriptUtil()
+        new_bone = maya_joint_handles[bone_idx]
         maya_joint_paths[bone_idx] = new_bone.fullPathName()
 
         # Apply information, note: Check whether or not we have locals/globals
@@ -869,9 +1146,6 @@ def __load_semodel__(file_path=""):
         bone_scale.createFromList(
             [bone.scale[0], bone.scale[1], bone.scale[2]], 3)
         new_bone.setScale(bone_scale.asDoublePtr())
-
-        # Store the joint for use later
-        maya_joint_handles[bone_idx] = bone_path
 
     # Iterate over materials and create them next (If they aren't already loaded)
     for mat in model.materials:
@@ -1313,7 +1587,6 @@ class SEModelFileManager(OpenMayaMPx.MPxFileTranslator):
 
     def writer(self, fileObject, optionString, accessMode):
         __save_semodel__(fileObject.fullName())
-        print("TODO")
 
     def reader(self, fileObject, optionString, accessMode):
         __load_semodel__(fileObject.fullName())
