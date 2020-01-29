@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 3.3.1",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 4.0.0",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -460,6 +460,8 @@ def __scene_obtainjoint__(joint_name, reset_rest=True):
         rest_rotation_jo = cmds.getAttr(joint_name + ".jo")[0]
         rest_rotation_r = cmds.getAttr(joint_name + ".r")[0]
 
+        # TODO: Make this take from the joint controller...
+
         # Take whichever one is used
         if __is_rotation_bzero__(rest_rotation_jo):
             rest_rotation = rest_rotation_r
@@ -757,6 +759,11 @@ def __save_semodel__(file_path):
     """Saves the scene as a SEModel file"""
     model = SEModel.Model()
 
+    # We need to configure the scene, save current state and change back later
+    currentunit_state = cmds.currentUnit(query=True, linear=True)
+    currentangle_state = cmds.currentUnit(query=True, angle=True)
+    cmds.currentUnit(linear="cm", angle="deg")
+
     # We need to get the current selection, or, select all if none
     select_list = OpenMaya.MSelectionList()
     OpenMaya.MGlobal.getActiveSelectionList(select_list)
@@ -773,10 +780,6 @@ def __save_semodel__(file_path):
             "SEModel::Export(%s) could not find any "
             "valid objects to export" % os.path.basename(file_path))
         return
-
-    # TODO: We need to set materials from uv_layers
-    # Make sure materials are in model
-    # We need to set scene defaults and reset after exporting... (Copy from anim)
 
     parent_stack = []
     unique_bones = set()
@@ -872,6 +875,9 @@ def __save_semodel__(file_path):
         for mat in mats:
             if not mat in used_materials:
                 used_materials[mat] = material_index
+                new_mat = SEModel.Material()
+                new_mat.name = mat
+                model.materials.append(new_mat)
                 material_index += 1
 
         new_mesh = SEModel.Mesh()
@@ -890,6 +896,12 @@ def __save_semodel__(file_path):
 
         uv_set_max = len(uv_sets)
         max_influence = 0
+
+        # Set material indices
+        for mat_index in xrange(uv_set_max):
+            if (mat_index < len(mats)):
+                new_mesh.materialReferences.append(
+                    used_materials[mats[mat_index]])
 
         # Calculate maximum influence
         while not vertex_iterator.isDone():
@@ -942,7 +954,7 @@ def __save_semodel__(file_path):
                 count = uvus.length()
                 for id in xrange(count):
                     uvu += (uvus[id] / count)
-                    uvv += (uvvs[id]/ count)
+                    uvv += (uvvs[id] / count)
                 new_vertex.uvLayers[uv_layer] = (uvu, 1 - uvv)
 
             # Build the weights if we have any
@@ -956,9 +968,9 @@ def __save_semodel__(file_path):
 
                 for vindex in xrange(weight_values.length()):
                     if weight_values[vindex] > 0.000001:
-                        new_vertex.weights[weight_index] = (model_joints.index(skin_joints[vindex].partialPathName()), weight_values[vindex])
-                        weight_index+= 1
-
+                        new_vertex.weights[weight_index] = (model_joints.index(
+                            skin_joints[vindex].partialPathName()), weight_values[vindex])
+                        weight_index += 1
 
             new_mesh.vertices.append(new_vertex)
             vertex_iterator.next()
@@ -986,7 +998,10 @@ def __save_semodel__(file_path):
 
         model.meshes.append(new_mesh)
 
-   # Save as a file
+    # Reconfigure the scene to our liking
+    cmds.currentUnit(linear=currentunit_state, angle=currentangle_state)
+
+    # Save as a file
     model.save(file_path)
     __log_info__(
         "SEModel::Export(%s) the model was saved successfully" % os.path.basename(file_path))
