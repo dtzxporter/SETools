@@ -31,7 +31,7 @@ def __log_info__(format_str=""):
 
 def __about_window__():
     """Present the about information"""
-    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 4.0.0",
+    cmds.confirmDialog(message="A SE Formats import and export plugin for Autodesk Maya. SE Formats are open-sourced model and animation containers supported across various toolchains.\n\n- Developed by DTZxPorter\n- Version 4.1.0",
                        button=['OK'], defaultButton='OK', title="About SE Tools")
 
 
@@ -1012,6 +1012,8 @@ def __save_seanim__(file_path, save_positions=True, save_rotations=True, save_sc
     anim = SEAnim.Anim()
     anim.header.framerate = 30
     anim.header.animType = SEAnim.SEANIM_TYPE.SEANIM_TYPE_ABSOLUTE
+
+    # TODO: Implement sampling from new libs
 
     # Calculate start and end frames
     start_frame = cmds.playbackOptions(query=True, ast=True)
