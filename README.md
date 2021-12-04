@@ -36,6 +36,9 @@ Replace the files in the correct directory from the installation section with th
 
 ## Changelog:
 
+*v4.0.1:*
+- Python 3.0 compatability
+
 *v4.0.0:*
 - Support for exporting SEModel files
 - Code cleanup and tweaks
