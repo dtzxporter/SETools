@@ -1,4 +1,6 @@
-# SETools - Maya (v4.0.0)
+# SETools - Maya (v4.0.1)
+
+> NOTICE: *.semodel and *.seanim will be deprecated soon in favor of cast: https://github.com/dtzxporter/cast.
 
 A .SE format import / export plugin for Maya (2014+)
 
