@@ -6,6 +6,10 @@ import struct
 LOG_READ_TIME = False
 LOG_WRITE_TIME = False
 
+try:
+    xrange
+except NameError:
+    xrange = range
 
 def enum(**enums):
     return type('Enum', (), enums)

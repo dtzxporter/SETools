@@ -15,6 +15,10 @@ import maya.OpenMayaMPx as OpenMayaMPx
 import seanim as SEAnim
 import semodel as SEModel
 
+try:
+    xrange
+except NameError:
+    xrange = range
 
 def __first__(first_iter, second_iter):
     """Compare two iterable objects"""
