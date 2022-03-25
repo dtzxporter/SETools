@@ -1,11 +1,6 @@
 import time
 import struct
 
-# <pep8 compliant>
-
-LOG_READ_TIME = False
-LOG_WRITE_TIME = False
-
 try:
     if xrange is None:
         xrange = range
@@ -15,6 +10,10 @@ except NameError:
 def enum(**enums):
     return type('Enum', (), enums)
 
+# <pep8 compliant>
+
+LOG_READ_TIME = False
+LOG_WRITE_TIME = False
 
 SEMODEL_PRESENCE_FLAGS = enum(
     # Whether or not this model contains a bone block
