@@ -16,6 +16,7 @@ LOG_WRITE_TIME = False
 def enum(**enums):
     return type('Enum', (), enums)
 
+
 SEMODEL_PRESENCE_FLAGS = enum(
     # Whether or not this model contains a bone block
     SEMODEL_PRESENCE_BONE=1 << 0,
