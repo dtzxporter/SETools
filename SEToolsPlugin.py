@@ -16,7 +16,8 @@ import seanim as SEAnim
 import semodel as SEModel
 
 try:
-    xrange
+    if xrange is None:
+        xrange = range
 except NameError:
     xrange = range
 
