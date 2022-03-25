@@ -7,7 +7,8 @@ LOG_READ_TIME = False
 LOG_WRITE_TIME = False
 
 try:
-    xrange
+    if xrange is None:
+        xrange = range
 except NameError:
     xrange = range
 
