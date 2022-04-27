@@ -1,6 +1,12 @@
 import time
 import struct
 
+try:
+    if xrange is None:
+        xrange = range
+except NameError:
+    xrange = range
+
 # <pep8 compliant>
 
 LOG_READ_TIME = False

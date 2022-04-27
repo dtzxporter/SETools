@@ -1,4 +1,4 @@
-# SETools - Maya (v4.0.1)
+# SETools - Maya (v4.1.0)
 
 > NOTICE: *.semodel and *.seanim will be deprecated soon in favor of cast: https://github.com/dtzxporter/cast.
 
@@ -37,6 +37,10 @@ Replace the files in the correct directory from the installation section with th
 - To export, either select the bones / meshes to use (or select none for all), then use "SE Tools -> Export SEModel File" this will export the model to a .semodel file.
 
 ## Changelog:
+
+*v4.1.0:*
+- Further Python 3.0 compatability
+- Maya 2022 support
 
 *v4.0.1:*
 - Python 3.0 compatability
