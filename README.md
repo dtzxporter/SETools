@@ -1,6 +1,12 @@
-# SETools - Maya (v4.1.0)
+# SETools - Maya (v4.1.0) (DEPRECATED)
 
-> NOTICE: *.semodel and *.seanim will be deprecated soon in favor of cast: https://github.com/dtzxporter/cast.
+# NOTICE: SEAnims/SEModels are now DEPRECATED. Cast is the newly supported model and animation format.
+
+- Convert SEModels to Cast Losslessly [SECast](https://dtzxporter.com/tools/secast)
+- Get cast plugins [Cast](https://github.com/dtzxporter/cast)
+- "My Tool Doesn't Support Cast" - BEG THE DEVELOPER, CAST IS MUCH EASIER TO EXPORT! Or use the converter.
+
+---
 
 A .SE format import / export plugin for Maya (2014+)
 
